@@ -1,3 +1,10 @@
+/*
+  ezpp -- Easy performance profiler for C++.
+
+  Copyright (c) 2010-2017 <http://ez8.co> <orca.zhang@yahoo.com>
+  This library is released under the MIT License.
+  Please see LICENSE file or visit https://github.com/ez8-co/ezpp for details.
+ */
 #pragma once
 
 #include <typeinfo>
@@ -493,25 +500,25 @@ namespace ezpp {
 					array.push_back(it->second);
 				}
 				if(output) {
-					fprintf(fp, "No.%zd ", ++num);
+					fprintf(fp, "No.%zd\r\n", ++num);
 					it->second->output(fp);
 				}
 			}
 			
 			if(_option & EZPP_OPT_SORT_BY_CALL_CNT) {
-				sort(array.begin(), array.end(), CallCntSort);
+				std::sort(array.begin(), array.end(), CallCntSort);
 				fprintf(fp, "\r\n     [Sort By Call Count]\r\n\r\n");
 				for(size_t i = 0; i < array.size(); ++i) {
-					fprintf(fp, "No.%zd ", i + 1);
+					fprintf(fp, "No.%zd\r\n", i + 1);
 					array[i]->output(fp);
 				}
 			}
 
 			if(_option & EZPP_OPT_SORT_BY_COST_TIME) {
-				sort(array.begin(), array.end(), CostTimeSort);
+				std::sort(array.begin(), array.end(), CostTimeSort);
 				fprintf(fp, "\r\n     [Sort By Cost Time]\r\n\r\n");
 				for(size_t i = 0; i < array.size(); ++i) {
-					fprintf(fp, "No.%zd ", i + 1);
+					fprintf(fp, "No.%zd\r\n", i + 1);
 					array[i]->output(fp);
 				}
 			}
