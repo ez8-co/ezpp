@@ -6,6 +6,12 @@
 *.lo
 *.o
 *.obj
+*.tlog
+*.log
+*.*db*
+*.ipch
+*.cmake
+CMakeFiles
 
 # Precompiled Headers
 *.gch

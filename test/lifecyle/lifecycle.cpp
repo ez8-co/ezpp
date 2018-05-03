@@ -1,6 +1,7 @@
 #include "../../ezpp.hpp"
 
 #include <iostream>
+#include <thread>
 using namespace std;
 
 void test(void)
@@ -79,23 +80,28 @@ void test_function_mt(void)
 
 int main(int argc,  char** argv)
 {
-	EZPP_ADD_OPTION(EZPP_OPT_FORCE_ENABLE);
-	test();
-	test_do();
-	test_ex();
-	test_ex_do();
-	test_recursion(10);
-	test_recursion_do(10);
+	try {
+		EZPP_ADD_OPTION(EZPP_OPT_FORCE_ENABLE);
+		test();
+		test_do();
+		test_ex();
+		test_ex_do();
+		test_recursion(10);
+		test_recursion_do(10);
 
-	std::thread t1(test_function_mt);
-	std::this_thread::sleep_for(std::chrono::milliseconds(200));
-	std::thread t2(test_function_mt);
+		std::thread t1(test_function_mt);
+		std::this_thread::sleep_for(std::chrono::milliseconds(200));
+		std::thread t2(test_function_mt);
 
-	std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+		std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 
-	t2.join();
-	std::this_thread::sleep_for(std::chrono::milliseconds(200));
-	t1.join();
+		t2.join();
+		std::this_thread::sleep_for(std::chrono::milliseconds(200));
+		t1.join();
+	}
+	catch (std::exception& e) {
+		std::cout << e.what() << std::endl;
+	}
 
 	return 0;
 }
