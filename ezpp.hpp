@@ -676,12 +676,6 @@ namespace ezpp {
 		std::string _extDesc;
 	}; // End class node_desc
 
-	struct node_desc_hasher {
-		size_t operator()(const node_desc& desc) {
-			return desc.hash();
-		}
-	};
-
 	class node {
 	public:
 		friend class ezpp;
@@ -767,6 +761,12 @@ namespace ezpp {
 		~ezpp();
 
 	protected:
+		struct node_desc_hasher {
+			size_t operator()(const node_desc& desc) {
+				return desc.hash();
+			}
+		};
+
 		friend class node;
 		friend ezpp& inst();
 		friend bool enabled();
@@ -1046,7 +1046,7 @@ namespace ezpp {
 				*(int64_t*)raw = 0;
 				}).first->second.data++ || (_flags & EZPP_NODE_FLAG_CLS)) {
 			_beginTimeMap.findOrConstruct(c12n, [=](void* raw) {
-				*(int64_t*)raw = now;
+				*(int64_t*)raw = 0;
 				}).first->second.data = now;
 		}
 		if (!_totalRefCnt) {
@@ -1080,7 +1080,7 @@ namespace ezpp {
 											*(int64_t*)raw = 0;
 											}).first->second.data;
 			_costTimeMap.findOrConstruct(c12n, [=](void* raw) {
-				*(int64_t*)raw = now - begin;
+				*(int64_t*)raw = 0;
 				}).first->second.data += now - begin;
 		}
 		if (!_totalRefCnt) {
