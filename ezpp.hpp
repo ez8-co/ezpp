@@ -29,33 +29,27 @@
 	#define UNLIKELY(x) (__builtin_expect((x), 0))
 #endif
 
-#define EZPP_NODE_MAX							512
+#define EZPP_NODE_MAX						512
 
-#define EZPP_ADD_OPTION(option)					::ezpp::inst().addOption(option)
-#define EZPP_REMOVE_OPTION(option)				::ezpp::inst().removeOption(option)
-#define EZPP_SET_OUTPUT_FILE_NAME(fileName)		::ezpp::inst().setOutputFileName(fileName)
-#define EZPP_PRINT()							::ezpp::inst().print()
-#define EZPP_SAVE(fileName)						::ezpp::inst().save(fileName)
-#define EZPP_CLEAR()							::ezpp::inst().clear()
-#define EZPP_ENABLED()							::ezpp::enabled()
+#define EZPP_ADD_OPTION(option)				::ezpp::inst().addOption(option)
+#define EZPP_REMOVE_OPTION(option)			::ezpp::inst().removeOption(option)
+#define EZPP_SET_OUTPUT_FILE_NAME(fileName)	::ezpp::inst().setOutputFileName(fileName)
+#define EZPP_PRINT()						::ezpp::inst().print()
+#define EZPP_SAVE(fileName)					::ezpp::inst().save(fileName)
+#define EZPP_CLEAR()						::ezpp::inst().clear()
+#define EZPP_ENABLED()						::ezpp::inst().enabled()
 
 #ifdef _WIN32
 	#define int64_t __int64
 	#define PRId64 "I64d"
 	#include <windows.h>
-	#define EZPP_CUR_THREAD_ID					(size_t)GetCurrentThreadId()
+	#define EZPP_CUR_THREAD_ID				(size_t)GetCurrentThreadId()
 #else
 	#include <inttypes.h>
 	#include <unistd.h>
 	#include <sys/syscall.h>
-	#define EZPP_CUR_THREAD_ID					(size_t)syscall(SYS_gettid)
+	#define EZPP_CUR_THREAD_ID				(size_t)syscall(SYS_gettid)
 #endif
-
-#define EZPP_SUB_CHECK(expression)				\
-	do { \
-		if (!::ezpp::enabled()) break; \
-		expression; \
-	} while (0)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -69,121 +63,71 @@
 #define EZPP_OPT_SAVE_IN_DTOR               0x80
 
 #define EZPP_OPT_SORT_BY_NAME      			0x40
-#define EZPP_OPT_SORT_BY_CALL_CNT       	0x20
-#define EZPP_OPT_SORT_BY_COST_TIME      	0x10
+#define EZPP_OPT_SORT_BY_CALL       		0x20
+#define EZPP_OPT_SORT_BY_COST      			0x10
 
 #define EZPP_OPT_FORCE_ENABLE               0x02
 #define EZPP_OPT_FORCE_DISABLE              0x01
 
 #define EZPP_OPT_EMPTY                      0x00
 
-#define EZPP_OPT_SORT                  		(EZPP_OPT_SORT_BY_NAME | EZPP_OPT_SORT_BY_CALL_CNT | EZPP_OPT_SORT_BY_COST_TIME)
+#define EZPP_OPT_SORT                  		(EZPP_OPT_SORT_BY_NAME | EZPP_OPT_SORT_BY_CALL | EZPP_OPT_SORT_BY_COST)
 #define EZPP_OPT_SWITCH                    	(EZPP_OPT_FORCE_ENABLE | EZPP_OPT_FORCE_DISABLE)
 
+//////////////////////////////////////////////////////////////////////////
 
-#define EZPP_NODE_FUNC_DESC_EX(desc)		::ezpp::node_desc(__FILE__, __LINE__, __FUNCTION__, desc)
+#define EZPP()									_EZPP_AUX_BASE(lc__, 0, "")
+#define EZPP_IN_LOOP()							_EZPP_AUX_BASE(lc_il__, EZPP_NODE_FLAG_IN_LOOP, "")
+#define EZPP_EX(desc)							_EZPP_AUX_BASE(ex_lc__, 0, desc)
+#define EZPP_EX_IN_LOOP(desc)					_EZPP_AUX_BASE(ex_lc_il__, EZPP_NODE_FLAG_IN_LOOP, desc)
+#define EZPP_DO()								_EZPP_AUX_BASE(lc_do__, EZPP_NODE_FLAG_DIRECT_OUTPUT, "")
+#define EZPP_EX_DO(desc)						_EZPP_AUX_BASE(ex_lc_do__, EZPP_NODE_FLAG_DIRECT_OUTPUT, desc)
 
 //////////////////////////////////////////////////////////////////////////
 
-#define EZPP_AUX_BASE_SUB(sign, flags, desc)	\
-	::ezpp::node_aux __ppn_a_##sign; \
-	EZPP_SUB_CHECK(__ppn_a_##sign.set(::ezpp::ezpp::create(EZPP_NODE_FUNC_DESC_EX(desc), EZPP_CUR_THREAD_ID, EZPP_NODE_FLAG_AUTO_START | flags), EZPP_CUR_THREAD_ID))
+#define EZPP_CODE_CLIP_BEGIN(sign)				_EZPP_NO_AUX_BEGIN_BASE(cc_##sign, 0, "")
+#define EZPP_CODE_CLIP_END(sign)				_EZPP_NO_AUX_END_BASE(cc_##sign)
 
-#define EZPP()								EZPP_AUX_BASE_SUB(lc__, 0, "")
-#define EZPP_IN_LOOP()						EZPP_AUX_BASE_SUB(lc_il__, EZPP_NODE_FLAG_IN_LOOP, "")
-#define EZPP_EX(desc)						EZPP_AUX_BASE_SUB(ex_lc__, 0, desc)
-#define EZPP_EX_IN_LOOP(desc)				EZPP_AUX_BASE_SUB(ex_lc_il__, EZPP_NODE_FLAG_IN_LOOP, desc)
-#define EZPP_DO()							EZPP_AUX_BASE_SUB(lc_do__, EZPP_NODE_FLAG_DIRECT_OUTPUT, "")
-#define EZPP_EX_DO(desc)					EZPP_AUX_BASE_SUB(ex_lc_do__, EZPP_NODE_FLAG_DIRECT_OUTPUT, desc)
+#define EZPP_CODE_CLIP_BEGIN_EX(sign, desc)		_EZPP_NO_AUX_BEGIN_BASE(cc_ex_##sign, 0, desc)
+#define EZPP_CODE_CLIP_END_EX(sign)				_EZPP_NO_AUX_END_BASE(cc_ex_##sign)
 
-//////////////////////////////////////////////////////////////////////////
+#define EZPP_CODE_CLIP_BEGIN_DO(sign)			_EZPP_NO_AUX_BEGIN_BASE(cc_##sign, EZPP_NODE_FLAG_DIRECT_OUTPUT, "")
+#define EZPP_CODE_CLIP_END_DO(sign)				_EZPP_NO_AUX_END_BASE(cc_##sign)
 
-#define EZPP_NO_AUX_BEGIN_BASE(sign, flags, desc)	\
-	::ezpp::node *__ppn_na_##sign##__ = 0; 			\
-	EZPP_SUB_CHECK(__ppn_na_##sign##__ = ::ezpp::ezpp::create(EZPP_NODE_FUNC_DESC_EX(desc), EZPP_CUR_THREAD_ID, EZPP_NODE_FLAG_AUTO_START | flags))
-
-#define EZPP_NO_AUX_END_BASE(sign)					\
-	if (__ppn_na_##sign##__) {						\
-		__ppn_na_##sign##__->setEndLineNum(__LINE__); \
-		__ppn_na_##sign##__->end(EZPP_CUR_THREAD_ID); \
-	}
+#define EZPP_CODE_CLIP_BEGIN_EX_DO(sign, desc)	_EZPP_NO_AUX_BEGIN_BASE(cc_ex_do_##sign, EZPP_NODE_FLAG_DIRECT_OUTPUT, desc)
+#define EZPP_CODE_CLIP_END_EX_DO(sign)			_EZPP_NO_AUX_END_BASE(cc_ex_do_##sign)
 
 //////////////////////////////////////////////////////////////////////////
 
-#define EZPP_CODE_CLIP_BEGIN(sign)				EZPP_NO_AUX_BEGIN_BASE(cc_##sign, 0, "")
-#define EZPP_CODE_CLIP_END(sign)				EZPP_NO_AUX_END_BASE(cc_##sign)
+#define EZPP_CLS_REGISTER()						_EZPP_CLS_REGISTER_BASE(_)
+#define EZPP_CLS_INIT()							_EZPP_CLS_INIT_BASE(_, 0, "")
 
-#define EZPP_CODE_CLIP_BEGIN_EX(sign, desc)		EZPP_NO_AUX_BEGIN_BASE(cc_ex_##sign, 0, desc)
-#define EZPP_CODE_CLIP_END_EX(sign)				EZPP_NO_AUX_END_BASE(cc_ex_##sign)
+#define EZPP_CLS_REGISTER_EX()					_EZPP_CLS_REGISTER_BASE(ex__)
+#define EZPP_CLS_INIT_EX(desc)					_EZPP_CLS_INIT_BASE(ex__, 0, desc)
 
-#define EZPP_CODE_CLIP_BEGIN_DO(sign)			EZPP_NO_AUX_BEGIN_BASE(cc_##sign, EZPP_NODE_FLAG_DIRECT_OUTPUT, "")
-#define EZPP_CODE_CLIP_END_DO(sign)				EZPP_NO_AUX_END_BASE(cc_##sign)
+#define EZPP_CLS_REGISTER_DO()					_EZPP_CLS_REGISTER_BASE(do__)
+#define EZPP_CLS_INIT_DO()						_EZPP_CLS_INIT_BASE(do__, EZPP_NODE_FLAG_DIRECT_OUTPUT, "")
 
-#define EZPP_CODE_CLIP_BEGIN_EX_DO(sign, desc)	EZPP_NO_AUX_BEGIN_BASE(cc_ex_do_##sign, EZPP_NODE_FLAG_DIRECT_OUTPUT, desc)
-#define EZPP_CODE_CLIP_END_EX_DO(sign)			EZPP_NO_AUX_END_BASE(cc_ex_do_##sign)
-
-//////////////////////////////////////////////////////////////////////////
-
-#define EZPP_CLS_REGISTER_BASE(sign)				\
-	protected:										\
-		::ezpp::node_aux __pp_na_cls_##sign;		\
-	public:											\
-
-#define EZPP_CLS_INIT_BASE(sign, flags, desc)		\
-	EZPP_SUB_CHECK(__pp_na_cls_##sign.set(::ezpp::ezpp::create(::ezpp::ezpp::node_desc(__FILE__, __LINE__, typeid(*this).name(), desc), (int64_t)this, EZPP_NODE_FLAG_AUTO_START | EZPP_NODE_FLAG_CLS | flags), (int64_t)this))
-
-#define EZPP_CLS_REGISTER()					EZPP_CLS_REGISTER_BASE(_)
-#define EZPP_CLS_INIT()						EZPP_CLS_INIT_BASE(_, 0, "")
-
-#define EZPP_CLS_REGISTER_EX()				EZPP_CLS_REGISTER_BASE(ex__)
-#define EZPP_CLS_INIT_EX(desc)				EZPP_CLS_INIT_BASE(ex__, 0, desc)
-
-#define EZPP_CLS_REGISTER_DO()				EZPP_CLS_REGISTER_BASE(do__)
-#define EZPP_CLS_INIT_DO()					EZPP_CLS_INIT_BASE(do__, EZPP_NODE_FLAG_DIRECT_OUTPUT, "")
-
-#define EZPP_CLS_REGISTER_EX_DO()			EZPP_CLS_REGISTER_BASE(ex_do__)
-#define EZPP_CLS_INIT_EX_DO(desc)			EZPP_CLS_INIT_BASE(ex_do__, EZPP_NODE_FLAG_DIRECT_OUTPUT, desc)
+#define EZPP_CLS_REGISTER_EX_DO()				_EZPP_CLS_REGISTER_BASE(ex_do__)
+#define EZPP_CLS_INIT_EX_DO(desc)				_EZPP_CLS_INIT_BASE(ex_do__, EZPP_NODE_FLAG_DIRECT_OUTPUT, desc)
 
 //////////////////////////////////////////////////////////////////////////
 
-#define EZPP_IL_DO_DECL_BASE(sign, flags, desc)			\
-	::ezpp::node *__ppn_il_do_##sign##__ = 0; \
-	EZPP_SUB_CHECK(__ppn_il_do_##sign##__ = ::ezpp::ezpp::create(EZPP_NODE_FUNC_DESC_EX(desc), EZPP_CUR_THREAD_ID, EZPP_NODE_FLAG_DIRECT_OUTPUT | flags))
+#define EZPP_IL_DO_DECL(sign)					_EZPP_IL_DO_DECL_BASE(sign, 0, "")
+#define EZPP_IL_DO_DECL_IL(sign)				_EZPP_IL_DO_DECL_BASE(sign, EZPP_NODE_FLAG_IN_LOOP, "")
+#define EZPP_IL_DO(sign)						_EZPP_IL_DO_BASE(sign)
+#define EZPP_IL_DO_CODE_CLIP_BEGIN(sign)		_EZPP_IL_DO_CODE_CLIP_BEGIN_BASE(sign)
+#define EZPP_IL_DO_CODE_CLIP_END(sign)			_EZPP_IL_DO_CODE_CLIP_END_BASE(sign)
+#define EZPP_IL_DO_END(sign)					_EZPP_IL_DO_END_BASE(sign)
 
-#define EZPP_IL_DO_BASE(sign)				\
-	::ezpp::node_aux __ezpp_na_il_do_lc_##sign##__(__ppn_il_do_##sign##__, EZPP_CUR_THREAD_ID); \
-	if (__ppn_il_do_##sign##__) { \
-		__ppn_il_do_##sign##__->begin(EZPP_CUR_THREAD_ID); \
-	}
+#define EZPP_IL_DO_EX_DECL(sign, desc)			_EZPP_IL_DO_DECL_BASE(ex_##sign, 0, desc)
+#define EZPP_IL_DO_EX_DECL_IL(sign, desc)		_EZPP_IL_DO_DECL_BASE(ex_##sign, EZPP_NODE_FLAG_IN_LOOP, desc)
+#define EZPP_IL_DO_EX(sign)						_EZPP_IL_DO_BASE(ex_##sign)
+#define EZPP_IL_DO_EX_CODE_CLIP_BEGIN(sign)		_EZPP_IL_DO_CODE_CLIP_BEGIN_BASE(ex_##sign)
+#define EZPP_IL_DO_EX_CODE_CLIP_END(sign)		_EZPP_IL_DO_CODE_CLIP_END_BASE(ex_##sign)
+#define EZPP_IL_DO_EX_END(sign)					_EZPP_IL_DO_END_BASE(ex_##sign)
 
-#define EZPP_IL_DO_CODE_CLIP_BEGIN_BASE(sign)		\
-	if (__ppn_il_do_##sign##__) { \
-		__ppn_il_do_##sign##__->call(EZPP_CUR_THREAD_ID); \
-	}
-
-#define EZPP_IL_DO_CODE_CLIP_END_BASE(sign)		\
-	if (__ppn_il_do_##sign##__) { \
-		__ppn_il_do_##sign##__->end(EZPP_CUR_THREAD_ID); \
-	}
-
-#define EZPP_IL_DO_END_BASE(sign)						\
-	if (__ppn_il_do_##sign##__) { \
-		__ppn_il_do_##sign##__->end(EZPP_CUR_THREAD_ID); \
-	}
-
-#define EZPP_IL_DO_DECL(sign)					EZPP_IL_DO_DECL_BASE(sign, 0, "")
-#define EZPP_IL_DO_DECL_IL(sign)				EZPP_IL_DO_DECL_BASE(sign, EZPP_NODE_FLAG_IN_LOOP, "")
-#define EZPP_IL_DO(sign)						EZPP_IL_DO_BASE(sign)
-#define EZPP_IL_DO_CODE_CLIP_BEGIN(sign)		EZPP_IL_DO_CODE_CLIP_BEGIN_BASE(sign)
-#define EZPP_IL_DO_CODE_CLIP_END(sign)			EZPP_IL_DO_CODE_CLIP_END_BASE(sign)
-#define EZPP_IL_DO_END(sign)					EZPP_IL_DO_END_BASE(sign)
-
-#define EZPP_IL_DO_EX_DECL(sign, desc)			EZPP_IL_DO_DECL_BASE(ex_##sign, 0, desc)
-#define EZPP_IL_DO_EX_DECL_IL(sign, desc)		EZPP_IL_DO_DECL_BASE(ex_##sign, EZPP_NODE_FLAG_IN_LOOP, desc)
-#define EZPP_IL_DO_EX(sign)						EZPP_IL_DO_BASE(ex_##sign)
-#define EZPP_IL_DO_EX_CODE_CLIP_BEGIN(sign)		EZPP_IL_DO_CODE_CLIP_BEGIN_BASE(ex_##sign)
-#define EZPP_IL_DO_EX_CODE_CLIP_END(sign)		EZPP_IL_DO_CODE_CLIP_END_BASE(ex_##sign)
-#define EZPP_IL_DO_EX_END(sign)					EZPP_IL_DO_END_BASE(ex_##sign)
+//////////////////////////////////////////////////////////////////////////
 
 namespace ezpp {
 
@@ -499,7 +443,6 @@ namespace ezpp {
 				typename std::aligned_storage<sizeof(value_type),
 											alignof(value_type)>::type raw_;
 
-
 				~Slot() {
 					auto s = state();
 					assert(s == EMPTY || s == LINKED);
@@ -641,7 +584,7 @@ namespace ezpp {
 
 		void outputFullDesc(FILE* fp) const {
 			if (_line) {
-				fprintf(fp, "%s(%s:%d", _cateName.c_str(), _fileName.c_str(), _line);
+				fprintf(fp, "%s (%s:%d", _cateName.c_str(), _fileName.c_str(), _line);
 				if (_endLine) {
 					fprintf(fp, "~%d", _endLine);
 				}
@@ -652,19 +595,19 @@ namespace ezpp {
 			}
 		}
 
-		void setEndLineNum(int endLineNum) {
+		inline void setEndLineNum(int endLineNum) {
 			_endLine = endLineNum;
 		}
 
-		bool operator==(const node_desc &other) const {
+		inline bool operator==(const node_desc &other) const {
 			return _line == other._line && _cateName == other._cateName && _fileName == other._fileName;
 		}
 
-		size_t hash() const {
+		inline size_t hash() const {
 			return _line ^ std::hash<std::string>()(_cateName);
 		}
 
-		const std::string& getName() const {
+		inline const std::string& getName() const {
 			return _cateName;
 		}
 
@@ -683,9 +626,9 @@ namespace ezpp {
 		inline const std::string& getName() const { return _desc.getName(); }
 		inline int64_t getCallCnt() const         { return _callCnt; }
 		inline int64_t getCostTime() const        { return _totalCostTime; }
-		bool checkInUse()                         { return (_totalRefCnt > 0); }
-		void setReleaseUntilEnd()                 { _releaseUntilEnd = true;}
-		void setEndLineNum(int endLineNum)        { _desc.setEndLineNum(endLineNum); }
+		inline bool checkInUse()                  { return (_totalRefCnt > 0); }
+		inline void setReleaseUntilEnd()          { _releaseUntilEnd = true;}
+		inline void setEndLineNum(int endLineNum) { _desc.setEndLineNum(endLineNum); }
 
 		void begin(int64_t c12n);
 		void end(int64_t c12n);
@@ -694,9 +637,11 @@ namespace ezpp {
 		void output(FILE* fp);
 
 	protected:
-		node_desc _desc;
+		static inline void atomic_init(void* raw) {
+			*(int64_t*)raw = 0;
+		}
 
-		unsigned char _flags;
+		node_desc _desc;
 
 		folly::AtomicUnorderedInsertMap<size_t, folly::MutableAtom<int64_t> > _beginTimeMap;
 		folly::AtomicUnorderedInsertMap<size_t, folly::MutableAtom<int64_t> > _costTimeMap;
@@ -709,11 +654,12 @@ namespace ezpp {
 		folly::AtomicUnorderedInsertMap<size_t, folly::MutableAtom<int64_t> > _refMap;
 		std::atomic<int64_t> _totalRefCnt;
 
+		unsigned char _flags;
 		bool _releaseUntilEnd;
 
 	private:
 		explicit node(const node_desc& desc, int64_t c12n, unsigned char flags);
-	}; // End class node
+	};
 
 	class node_aux {
 	public:
@@ -722,7 +668,7 @@ namespace ezpp {
 			, _c12n(c12n)
 		{}
 
-		void set(node *ppNode, int64_t c12n) {
+		inline void set(node *ppNode, int64_t c12n) {
 			_ppNode = ppNode;
 			_c12n = c12n;
 		}
@@ -736,7 +682,7 @@ namespace ezpp {
 	private:
 		node *_ppNode;
 		int64_t _c12n;
-	}; // End class node_aux
+	};
 
 	class ezpp {
 	public:
@@ -746,7 +692,7 @@ namespace ezpp {
 		void addOption(unsigned char optModify);
 		void removeOption(unsigned char optModify);
 
-		void setOutputFileName(const std::string &fileName) {
+		inline void setOutputFileName(const std::string &fileName) {
 			_fileName = fileName;
 		}
 
@@ -755,9 +701,10 @@ namespace ezpp {
 		void print();
 		void save(const std::string& fileName = "");
 		void clear();
+		inline bool enabled() { return _enabled; }
 
 	protected:
-		ezpp(int dummy);
+		ezpp(int/* dummy */);
 		~ezpp();
 
 	protected:
@@ -769,7 +716,11 @@ namespace ezpp {
 
 		friend class node;
 		friend ezpp& inst();
-		friend bool enabled();
+
+		static int init() {
+			std::srand(time(0));
+			return 0;
+		}
 
 		void removeDoNode(const node_desc& desc);
 
@@ -788,18 +739,9 @@ namespace ezpp {
 		std::string _fileName;
 	};
 
-	int init() {
-		std::srand(time(0));
-		return 0;
-	}
-
 	ezpp& inst() {
-		static ezpp inst(init());
+		static ezpp inst(ezpp::init());
 		return inst;
-	}
-
-	bool enabled() {
-		return inst()._enabled;
 	}
 
 	namespace detail {
@@ -842,7 +784,7 @@ namespace ezpp {
 	}
 
 	// protected
-	ezpp::ezpp(int dummy)
+	ezpp::ezpp(int/* dummy */)
 		: _doMap(EZPP_NODE_MAX)
 		, _nodeMap(EZPP_NODE_MAX)
 		, _beginTime(0)
@@ -863,7 +805,7 @@ namespace ezpp {
 	// public static
 	node* 
 	ezpp::create(const node_desc& desc, int64_t c12n, unsigned char flags /*= EZPP_NODE_FLAG_AUTO_START*/) {
-		if (!enabled() || !flags) {
+		if (!inst().enabled() || !flags) {
 			return 0;
 		}
 		folly::AtomicUnorderedInsertMap<node_desc, folly::MutableData<node*>, node_desc_hasher>& map = (flags & EZPP_NODE_FLAG_DIRECT_OUTPUT) ? inst()._doMap : inst()._nodeMap;
@@ -890,8 +832,9 @@ namespace ezpp {
 
 	void
 	ezpp::output(FILE* fp) {
-		fprintf(fp, "========== Easy Performance Profiler Report ==========\r\n");
 		if (_nodeMap.cbegin() != _nodeMap.cend()) {
+			fprintf(fp, "========== Easy Performance Profiler Report ==========\r\n");
+
 			std::vector<node *> array;
 			for (folly::AtomicUnorderedInsertMap<node_desc, folly::MutableData<node*>, node_desc_hasher>::const_iterator it = _nodeMap.cbegin(); it != _nodeMap.cend(); ++it) {
 				array.push_back(it->second.data);
@@ -906,32 +849,32 @@ namespace ezpp {
 				}
 			}
 			
-			if (_option & EZPP_OPT_SORT_BY_CALL_CNT) {
+			if (_option & EZPP_OPT_SORT_BY_CALL) {
 				std::sort(array.begin(), array.end(), detail::CallCntSort);
-				fprintf(fp, "\r\n     [Sort By Call Count]\r\n\r\n");
+				fprintf(fp, "\r\n     [Sort By Call]\r\n\r\n");
 				for (size_t i = 0; i < array.size(); ++i) {
 					fprintf(fp, "No.%zd\r\n", i + 1);
 					array[i]->output(fp);
 				}
 			}
 
-			if (_option & EZPP_OPT_SORT_BY_COST_TIME) {
+			if (_option & EZPP_OPT_SORT_BY_COST) {
 				std::sort(array.begin(), array.end(), detail::CostTimeSort);
-				fprintf(fp, "\r\n     [Sort By Cost Time]\r\n\r\n");
+				fprintf(fp, "\r\n     [Sort By Cost]\r\n\r\n");
 				for (size_t i = 0; i < array.size(); ++i) {
 					fprintf(fp, "No.%zd\r\n", i + 1);
 					array[i]->output(fp);
 				}
 			}
-		}
 
-		fprintf(fp, "======[Total Time Elapsed] ");
-		outputTime(fp, time_now() - _beginTime);
-		time_t timep;
-		time(&timep);
-		char tmp[64];
-		strftime(tmp, sizeof(tmp), "%Y-%m-%d %H:%M:%S", localtime(&timep));
-		fprintf(fp, " ======\r\n======[Generate Date] %s ======\r\n", tmp);
+			fprintf(fp, "====== [Total Time Elapsed] ");
+			outputTime(fp, time_now() - _beginTime);
+			time_t timep;
+			time(&timep);
+			char tmp[64];
+			strftime(tmp, sizeof(tmp), "%Y-%m-%d %H:%M:%S", localtime(&timep));
+			fprintf(fp, " ======\r\n====== [Generate Date] %s ======\r\n", tmp);
+		}
 	}
 
 	// public
@@ -947,7 +890,7 @@ namespace ezpp {
 	}
 
 	// public
-	void 
+	void
 	ezpp::save(const std::string& fileName/* = ""*/) {
 		FILE* fp = fopen(fileName.empty() ? getOutputFileName().c_str() : fileName.c_str(), "wb+");
 		output(fp);
@@ -955,7 +898,7 @@ namespace ezpp {
 	}
 
 	// public
-	void 
+	void
 	ezpp::clear() {
 		std::for_each(_doMap.cbegin(), _doMap.cend(), ezpp::release);
 		_doMap.clear();
@@ -965,16 +908,15 @@ namespace ezpp {
 	}
 
 	// protected
-	void 
+	void
 	ezpp::removeDoNode(const node_desc& desc) {
 		_doMap.erase(desc);
 	}
 
 	// public
-	void 
+	void
 	ezpp::addOption(unsigned char optModify) {
-		if ((optModify & EZPP_OPT_SWITCH) && (optModify & EZPP_OPT_SWITCH) != EZPP_OPT_SWITCH)
-		{
+		if (optModify & EZPP_OPT_SWITCH) {
 			if ((optModify & EZPP_OPT_FORCE_ENABLE) && !_enabled) {
 				_enabled = true;
 				_beginTime = time_now();
@@ -995,31 +937,20 @@ namespace ezpp {
 	}
 
 	// public
-	void 
+	void
 	ezpp::removeOption(unsigned char optModify) {
-		if ((optModify & EZPP_OPT_FORCE_ENABLE) 
-			&& (_option & EZPP_OPT_FORCE_ENABLE) 
-			&& _enabled) {
-			_enabled = false;
-		}
-		if ((optModify & EZPP_OPT_FORCE_DISABLE) 
-			&& (_option & EZPP_OPT_FORCE_DISABLE) 
-			&& !_enabled) {
+		if ((optModify & _option & EZPP_OPT_FORCE_DISABLE) && !_enabled) {
 			_enabled = true;
 			_beginTime = time_now();
 		}
+		if ((optModify & _option & EZPP_OPT_FORCE_ENABLE) && _enabled)
+			_enabled = false;
 		_option &= ~optModify;
 	}
-
-	////////////////////////////////////////////////////////////////////////////////////////////////////
-	//
-	// node
-	//
 
 	// protected
 	node::node(const node_desc& desc, int64_t c12n, unsigned char flags)
 		: _desc(desc)
-		, _flags(flags)
 		, _beginTimeMap(EZPP_NODE_MAX)
 		, _costTimeMap(EZPP_NODE_MAX)
 		, _lastStartTime(0)
@@ -1027,31 +958,26 @@ namespace ezpp {
 		, _callCnt(1)
 		, _refMap(EZPP_NODE_MAX)
 		, _totalRefCnt(1)
+		, _flags(flags)
 		, _releaseUntilEnd(false)
 	{
-		if (_flags & EZPP_NODE_FLAG_AUTO_START) {
+		if (_flags & EZPP_NODE_FLAG_AUTO_START)
 			begin(c12n);
-		}
-		else {
+		else
 			++_totalRefCnt;
-		}
 		_lastStartTime = time_now();
 	}
+
+	#define _GET_(m, k) m.findOrConstruct(k, atomic_init).first->second.data
 
 	// public
 	void 
 	node::call(int64_t c12n) {
 		int64_t now = time_now();
-		if (!_refMap.findOrConstruct(c12n, [=](void* raw) {
-				*(int64_t*)raw = 0;
-				}).first->second.data++ || (_flags & EZPP_NODE_FLAG_CLS)) {
-			_beginTimeMap.findOrConstruct(c12n, [=](void* raw) {
-				*(int64_t*)raw = 0;
-				}).first->second.data = now;
-		}
-		if (!_totalRefCnt) {
+		if (!_GET_(_refMap, c12n)++ || (_flags & EZPP_NODE_FLAG_CLS))
+			_GET_(_beginTimeMap, c12n) = now;
+		if (!_totalRefCnt)
 			_lastStartTime = now;
-		}
 		++_totalRefCnt;
 		++_callCnt;
 	}
@@ -1073,15 +999,8 @@ namespace ezpp {
 	node::end(int64_t c12n) {
 		--_totalRefCnt;
 		int64_t now = time_now();
-		if (!--_refMap.findOrConstruct(c12n, [=](void* raw) {
-			*(int64_t*)raw = 0;
-			}).first->second.data || (_flags & EZPP_NODE_FLAG_CLS)) {
-				int64_t begin = _beginTimeMap.findOrConstruct(c12n, [=](void* raw) {
-											*(int64_t*)raw = 0;
-											}).first->second.data;
-			_costTimeMap.findOrConstruct(c12n, [=](void* raw) {
-				*(int64_t*)raw = 0;
-				}).first->second.data += now - begin;
+		if (!--_GET_(_refMap, c12n) || (_flags & EZPP_NODE_FLAG_CLS)) {
+			_GET_(_costTimeMap, c12n) += now - _GET_(_beginTimeMap, c12n);
 		}
 		if (!_totalRefCnt) {
 			_totalCostTime += now - _lastStartTime;
@@ -1091,11 +1010,12 @@ namespace ezpp {
 				inst().removeDoNode(_desc);
 				delete this;
 			}
-			else if (_releaseUntilEnd) {
+			else if (_releaseUntilEnd)
 				delete this;
-			}
 		}
 	}
+
+	#undef _GET_
 
 	// public
 	void
@@ -1103,9 +1023,8 @@ namespace ezpp {
 		fprintf(fp, "[Category] ");
 		_desc.outputFullDesc(fp);
 		fprintf(fp, "\r\n");
-		if (_totalRefCnt) {
+		if (_totalRefCnt)
 			fprintf(fp, "Warning: Unbalance detected! Mismatch or haven't been ended yet!\r\n");
-		}
 		fprintf(fp, "[Time] ");
 		ezpp::outputTime(fp, _totalCostTime);
 		if (_totalRefCnt) {
@@ -1142,3 +1061,54 @@ namespace ezpp {
 		fprintf(fp, "[Call] %" PRId64 "\r\n\r\n", _callCnt.load());
 	}
 }
+
+//////////////////////////////////////////////////////////////////////////
+
+#define _EZPP_SUB_CHECK(expression)					if (::ezpp::inst().enabled()) {expression;}
+
+#define _EZPP_AUX_BASE(sign, flags, desc)			\
+	::ezpp::node_aux __ppn_a_##sign; 				\
+	_EZPP_SUB_CHECK(__ppn_a_##sign.set(::ezpp::ezpp::create(::ezpp::node_desc(__FILE__, __LINE__, __FUNCTION__, desc), EZPP_CUR_THREAD_ID, EZPP_NODE_FLAG_AUTO_START | flags), EZPP_CUR_THREAD_ID))
+
+#define _EZPP_NO_AUX_BEGIN_BASE(sign, flags, desc)	\
+	::ezpp::node *__ppn_na_##sign##__ = 0; 			\
+	_EZPP_SUB_CHECK(__ppn_na_##sign##__ = ::ezpp::ezpp::create(::ezpp::node_desc(__FILE__, __LINE__, __FUNCTION__, desc), EZPP_CUR_THREAD_ID, EZPP_NODE_FLAG_AUTO_START | flags))
+
+#define _EZPP_NO_AUX_END_BASE(sign)					\
+	if (__ppn_na_##sign##__) {						\
+		__ppn_na_##sign##__->setEndLineNum(__LINE__); \
+		__ppn_na_##sign##__->end(EZPP_CUR_THREAD_ID); \
+	}
+
+#define _EZPP_CLS_REGISTER_BASE(sign)				\
+	protected:										\
+		::ezpp::node_aux __pp_na_cls_##sign;		\
+	public:											\
+
+#define _EZPP_CLS_INIT_BASE(sign, flags, desc)		\
+	_EZPP_SUB_CHECK(__pp_na_cls_##sign.set(::ezpp::ezpp::create(::ezpp::node_desc(__FILE__, __LINE__, typeid(*this).name(), desc), (int64_t)this, EZPP_NODE_FLAG_AUTO_START | EZPP_NODE_FLAG_CLS | flags), (int64_t)this))
+
+#define _EZPP_IL_DO_DECL_BASE(sign, flags, desc)		\
+	::ezpp::node *__ppn_il_do_##sign##__ = 0; 		\
+	_EZPP_SUB_CHECK(__ppn_il_do_##sign##__ = ::ezpp::ezpp::create(::ezpp::node_desc(__FILE__, __LINE__, __FUNCTION__, desc), EZPP_CUR_THREAD_ID, EZPP_NODE_FLAG_DIRECT_OUTPUT | flags))
+
+#define _EZPP_IL_DO_BASE(sign)						\
+	::ezpp::node_aux __ezpp_na_il_do_lc_##sign##__(__ppn_il_do_##sign##__, EZPP_CUR_THREAD_ID); \
+	if (__ppn_il_do_##sign##__) { 					\
+		__ppn_il_do_##sign##__->begin(EZPP_CUR_THREAD_ID); \
+	}
+
+#define _EZPP_IL_DO_CODE_CLIP_BEGIN_BASE(sign)		\
+	if (__ppn_il_do_##sign##__) { 					\
+		__ppn_il_do_##sign##__->call(EZPP_CUR_THREAD_ID); \
+	}
+
+#define _EZPP_IL_DO_CODE_CLIP_END_BASE(sign)			\
+	if (__ppn_il_do_##sign##__) { 					\
+		__ppn_il_do_##sign##__->end(EZPP_CUR_THREAD_ID); \
+	}
+
+#define _EZPP_IL_DO_END_BASE(sign)					\
+	if (__ppn_il_do_##sign##__) { 					\
+		__ppn_il_do_##sign##__->end(EZPP_CUR_THREAD_ID); \
+	}
