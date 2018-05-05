@@ -22,10 +22,8 @@ void test(void)
 
 void test_do(void)
 {
-	{
-		EZPP_DO();
-		std::this_thread::sleep_for(std::chrono::seconds(2));
-	}
+	EZPP_DO();
+	std::this_thread::sleep_for(std::chrono::seconds(2));
 }
 
 void test_ex(void)
@@ -46,10 +44,8 @@ void test_ex(void)
 
 void test_ex_do(void)
 {
-	{
-		EZPP_EX_DO("EZPP_EX_DO");
-		std::this_thread::sleep_for(std::chrono::seconds(2));
-	}
+	EZPP_EX_DO("EZPP_EX_DO");
+	std::this_thread::sleep_for(std::chrono::seconds(2));
 }
 
 void test_recursion(int entry)
@@ -78,10 +74,24 @@ void test_function_mt(void)
 	std::this_thread::sleep_for(std::chrono::milliseconds(800));
 }
 
+bool run = true;
+
+void test_clear(void)
+{
+	while(run) {
+		std::this_thread::sleep_for(std::chrono::seconds(2));
+		EZPP_PRINT();
+		EZPP_CLEAR();
+	}
+}
+
 int main(int argc,  char** argv)
 {
 	try {
 		EZPP_ADD_OPTION(EZPP_OPT_FORCE_ENABLE);
+
+		std::thread t(test_clear);
+
 		test();
 		test_do();
 		test_ex();
@@ -98,6 +108,9 @@ int main(int argc,  char** argv)
 		t2.join();
 		std::this_thread::sleep_for(std::chrono::milliseconds(200));
 		t1.join();
+
+		run = false;
+		t.join();
 	}
 	catch (std::exception& e) {
 		std::cout << e.what() << std::endl;
