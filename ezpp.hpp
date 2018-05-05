@@ -893,6 +893,7 @@ namespace ezpp {
 	void
 	ezpp::save(const std::string& fileName/* = ""*/) {
 		FILE* fp = fopen(fileName.empty() ? getOutputFileName().c_str() : fileName.c_str(), "wb+");
+		if(!fp) return;
 		output(fp);
 		fclose(fp);
 	}
@@ -939,12 +940,13 @@ namespace ezpp {
 	// public
 	void
 	ezpp::removeOption(unsigned char optModify) {
-		if ((optModify & _option & EZPP_OPT_FORCE_DISABLE) && !_enabled) {
+		if ((optModify & EZPP_OPT_FORCE_DISABLE) && !_enabled) {
 			_enabled = true;
 			_beginTime = time_now();
 		}
-		if ((optModify & _option & EZPP_OPT_FORCE_ENABLE) && _enabled)
+		if ((optModify & EZPP_OPT_FORCE_ENABLE) && _enabled) {
 			_enabled = false;
+		}
 		_option &= ~optModify;
 	}
 
