@@ -6,60 +6,60 @@ using namespace std;
 
 void test_do(void)
 {
-	EZPP_IL_DO_DECL(a);
-	EZPP_IL_DO_DECL(b);
+	EZPP_ILDO_DECL(a);
+	EZPP_ILDO_DECL(b);
 	for(int i = 0; i < 100; i++) {
-		EZPP_IL_DO_CODE_CLIP_BEGIN(b);
+		EZPP_ILDO_BEGIN(b);
 		std::this_thread::sleep_for(std::chrono::milliseconds(20));
-		EZPP_IL_DO_CODE_CLIP_END(b);
+		EZPP_ILDO_END(b);
 
-		EZPP_IL_DO(a);
+		EZPP_ILDO(a);
 		std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
-	EZPP_IL_DO_END(a);
-	EZPP_IL_DO_END(b);
+	EZPP_ILDO_END(a);
+	EZPP_ILDO_END(b);
 
-	EZPP_IL_DO_DECL_IL(c);
-	EZPP_IL_DO_DECL_IL(d);
+	EZPP_ILDO_DECL_IL(c);
+	EZPP_ILDO_DECL_IL(d);
 	for(int i = 0; i < 100; i++) {
-		EZPP_IL_DO_CODE_CLIP_BEGIN(d);
+		EZPP_ILDO_BEGIN(d);
 		std::this_thread::sleep_for(std::chrono::milliseconds(20));
-		EZPP_IL_DO_CODE_CLIP_END(d);
+		EZPP_ILDO_END(d);
 
-		EZPP_IL_DO(c);
+		EZPP_ILDO(c);
 		std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
-	EZPP_IL_DO_END(c);
-	EZPP_IL_DO_END(d);
+	EZPP_ILDO_END(c);
+	EZPP_ILDO_END(d);
 }
 
 void test_ex_do(void)
 {
-	EZPP_IL_DO_EX_DECL(a, "EZPP_IL_DO_EX_DECL");
-	EZPP_IL_DO_EX_DECL(b, "EZPP_IL_DO_EX_DECL");
+	EZPP_ILDO_EX_DECL(a, "EZPP_ILDO_EX_DECL");
+	EZPP_ILDO_EX_DECL(b, "EZPP_ILDO_EX_DECL");
 	for(int i = 0; i < 100; i++) {
-		EZPP_IL_DO_EX_CODE_CLIP_BEGIN(b);
+		EZPP_ILDO_EX_BEGIN(b);
 		std::this_thread::sleep_for(std::chrono::milliseconds(20));
-		EZPP_IL_DO_EX_CODE_CLIP_END(b);
+		EZPP_ILDO_EX_END(b);
 
-		EZPP_IL_DO_EX(a);
+		EZPP_ILDO_EX(a);
 		std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
-	EZPP_IL_DO_EX_END(a);
-	EZPP_IL_DO_EX_END(b);
+	EZPP_ILDO_EX_END(a);
+	EZPP_ILDO_EX_END(b);
 
-	EZPP_IL_DO_EX_DECL_IL(c, "EZPP_IL_DO_EX_DECL_IL");
-	EZPP_IL_DO_EX_DECL_IL(d, "EZPP_IL_DO_EX_DECL_IL");
+	EZPP_ILDO_EX_DECL_IL(c, "EZPP_ILDO_EX_DECL_IL");
+	EZPP_ILDO_EX_DECL_IL(d, "EZPP_ILDO_EX_DECL_IL");
 	for(int i = 0; i < 100; i++) {
-		EZPP_IL_DO_EX_CODE_CLIP_BEGIN(d);
+		EZPP_ILDO_EX_BEGIN(d);
 		std::this_thread::sleep_for(std::chrono::milliseconds(20));
-		EZPP_IL_DO_EX_CODE_CLIP_END(d);
+		EZPP_ILDO_EX_END(d);
 
-		EZPP_IL_DO_EX(c);
+		EZPP_ILDO_EX(c);
 		std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
-	EZPP_IL_DO_EX_END(c);
-	EZPP_IL_DO_EX_END(d);
+	EZPP_ILDO_EX_END(c);
+	EZPP_ILDO_EX_END(d);
 }
 
 int main(int argc,  char** argv)

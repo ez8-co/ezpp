@@ -15,40 +15,40 @@ using namespace std;
 
 void test(void)
 {
-	EZPP_CODE_CLIP_BEGIN(x);
+	EZPP_BEGIN(x);
 	std::this_thread::sleep_for(std::chrono::seconds(2));
-	EZPP_CODE_CLIP_END(x);
+	EZPP_END(x);
 	TEST(
-		EZPP_CODE_CLIP_BEGIN(x);
+		EZPP_BEGIN(x);
 		std::this_thread::sleep_for(std::chrono::milliseconds(200));
-		EZPP_CODE_CLIP_END(x);
+		EZPP_END(x);
 	);
 }
 
 void test_do(void)
 {
-	EZPP_CODE_CLIP_BEGIN_DO(x);
+	EZPP_BEGIN_DO(x);
 	std::this_thread::sleep_for(std::chrono::seconds(2));
-	EZPP_CODE_CLIP_END_DO(x);
+	EZPP_END_DO(x);
 }
 
 void test_ex(void)
 {
-	EZPP_CODE_CLIP_BEGIN_EX(x, "EZPP_CODE_CLIP_BEGIN_EX");
+	EZPP_BEGIN_EX(x, "EZPP_BEGIN_EX");
 	std::this_thread::sleep_for(std::chrono::seconds(2));
-	EZPP_CODE_CLIP_END_EX(x);
+	EZPP_END_EX(x);
 	TEST(
-		EZPP_CODE_CLIP_BEGIN_EX(x, "EZPP_CODE_CLIP_BEGIN_EX");
+		EZPP_BEGIN_EX(x, "EZPP_BEGIN_EX");
 		std::this_thread::sleep_for(std::chrono::milliseconds(200));
-		EZPP_CODE_CLIP_END_EX(x);
+		EZPP_END_EX(x);
 	);
 }
 
 void test_ex_do(void)
 {
-	EZPP_CODE_CLIP_BEGIN_EX_DO(x, "EZPP_CODE_CLIP_BEGIN_EX_DO");
+	EZPP_BEGIN_EX_DO(x, "EZPP_BEGIN_EX_DO");
 	std::this_thread::sleep_for(std::chrono::seconds(2));
-	EZPP_CODE_CLIP_END_EX_DO(x);
+	EZPP_END_EX_DO(x);
 }
 
 int main(int argc,  char** argv)
