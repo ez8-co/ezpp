@@ -1,7 +1,13 @@
 #include "../../ezpp.hpp"
 
 #include <iostream>
-#include <thread>
+
+#ifdef _MSC_VER
+	#include <windows.h>
+#else
+	#define Sleep(ms) usleep(ms * 1000)
+#endif
+
 using namespace std;
 
 void test_do(void)
@@ -10,11 +16,11 @@ void test_do(void)
 	EZPP_ILDO_DECL(b);
 	for(int i = 0; i < 100; i++) {
 		EZPP_ILDO_BEGIN(b);
-		std::this_thread::sleep_for(std::chrono::milliseconds(20));
+		Sleep(20);
 		EZPP_ILDO_END(b);
 
 		EZPP_ILDO(a);
-		std::this_thread::sleep_for(std::chrono::milliseconds(20));
+		Sleep(20);
 	}
 	EZPP_ILDO_END(a);
 	EZPP_ILDO_END(b);
@@ -23,11 +29,11 @@ void test_do(void)
 	EZPP_ILDO_DECL_IL(d);
 	for(int i = 0; i < 100; i++) {
 		EZPP_ILDO_BEGIN(d);
-		std::this_thread::sleep_for(std::chrono::milliseconds(20));
+		Sleep(20);
 		EZPP_ILDO_END(d);
 
 		EZPP_ILDO(c);
-		std::this_thread::sleep_for(std::chrono::milliseconds(20));
+		Sleep(20);
 	}
 	EZPP_ILDO_END(c);
 	EZPP_ILDO_END(d);
@@ -39,11 +45,11 @@ void test_ex_do(void)
 	EZPP_ILDO_EX_DECL(b, "EZPP_ILDO_EX_DECL");
 	for(int i = 0; i < 100; i++) {
 		EZPP_ILDO_EX_BEGIN(b);
-		std::this_thread::sleep_for(std::chrono::milliseconds(20));
+		Sleep(20);
 		EZPP_ILDO_EX_END(b);
 
 		EZPP_ILDO_EX(a);
-		std::this_thread::sleep_for(std::chrono::milliseconds(20));
+		Sleep(20);
 	}
 	EZPP_ILDO_EX_END(a);
 	EZPP_ILDO_EX_END(b);
@@ -52,11 +58,11 @@ void test_ex_do(void)
 	EZPP_ILDO_EX_DECL_IL(d, "EZPP_ILDO_EX_DECL_IL");
 	for(int i = 0; i < 100; i++) {
 		EZPP_ILDO_EX_BEGIN(d);
-		std::this_thread::sleep_for(std::chrono::milliseconds(20));
+		Sleep(20);
 		EZPP_ILDO_EX_END(d);
 
 		EZPP_ILDO_EX(c);
-		std::this_thread::sleep_for(std::chrono::milliseconds(20));
+		Sleep(20);
 	}
 	EZPP_ILDO_EX_END(c);
 	EZPP_ILDO_EX_END(d);

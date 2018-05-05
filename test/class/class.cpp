@@ -1,7 +1,13 @@
 #include "../../ezpp.hpp"
 
 #include <iostream>
-#include <thread>
+
+#ifdef _MSC_VER
+	#include <windows.h>
+#else
+	#define Sleep(ms) usleep(ms * 1000)
+#endif
+
 using namespace std;
 
 class test
@@ -17,7 +23,7 @@ void test_(void)
 		test all;
 		test all1;
 		test all2;
-		std::this_thread::sleep_for(std::chrono::seconds(2));
+		Sleep(2000);
 	}
 	test all3;
 }
@@ -35,7 +41,7 @@ void test_do_(void)
 		test_do do0;
 		test_do do2;
 		test_do do3;
-		std::this_thread::sleep_for(std::chrono::seconds(2));
+		Sleep(2000);
 	}
 	test_do do3;
 }
@@ -53,7 +59,7 @@ void test_ex_(void)
 		test_ex ex;
 		test_ex ex1;
 		test_ex ex2;
-		std::this_thread::sleep_for(std::chrono::seconds(2));
+		Sleep(2000);
 	}
 	test_ex ex3;
 }
@@ -71,7 +77,7 @@ void test_ex_do_(void)
 		test_ex_do ex_do;
 		test_ex_do ex_do1;
 		test_ex_do ex_do2;
-		std::this_thread::sleep_for(std::chrono::seconds(2));
+		Sleep(2000);
 	}
 	test_ex_do ex_do3;
 }

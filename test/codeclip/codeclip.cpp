@@ -1,7 +1,13 @@
 #include "../../ezpp.hpp"
 
 #include <iostream>
-#include <thread>
+
+#ifdef _MSC_VER
+	#include <windows.h>
+#else
+	#define Sleep(ms) usleep(ms * 1000)
+#endif
+
 using namespace std;
 
 #define TEST_CNT 10
@@ -16,11 +22,11 @@ using namespace std;
 void test(void)
 {
 	EZPP_BEGIN(x);
-	std::this_thread::sleep_for(std::chrono::seconds(2));
+	Sleep(2000);
 	EZPP_END(x);
 	TEST(
 		EZPP_BEGIN(x);
-		std::this_thread::sleep_for(std::chrono::milliseconds(200));
+		Sleep(200);
 		EZPP_END(x);
 	);
 }
@@ -28,18 +34,18 @@ void test(void)
 void test_do(void)
 {
 	EZPP_BEGIN_DO(x);
-	std::this_thread::sleep_for(std::chrono::seconds(2));
+	Sleep(2000);
 	EZPP_END_DO(x);
 }
 
 void test_ex(void)
 {
 	EZPP_BEGIN_EX(x, "EZPP_BEGIN_EX");
-	std::this_thread::sleep_for(std::chrono::seconds(2));
+	Sleep(2000);
 	EZPP_END_EX(x);
 	TEST(
 		EZPP_BEGIN_EX(x, "EZPP_BEGIN_EX");
-		std::this_thread::sleep_for(std::chrono::milliseconds(200));
+		Sleep(200);
 		EZPP_END_EX(x);
 	);
 }
@@ -47,7 +53,7 @@ void test_ex(void)
 void test_ex_do(void)
 {
 	EZPP_BEGIN_EX_DO(x, "EZPP_BEGIN_EX_DO");
-	std::this_thread::sleep_for(std::chrono::seconds(2));
+	Sleep(2000);
 	EZPP_END_EX_DO(x);
 }
 
