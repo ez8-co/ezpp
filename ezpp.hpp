@@ -14,11 +14,11 @@
 #include <algorithm>
 #include <ctime>
 
-#include <atomic>
 #include <stdexcept>
 #include <memory>
 #include <cstring>
 #include <cassert>
+#include <cstdio>
 
 #ifdef _MSC_VER
   #include <intrin.h>
@@ -51,7 +51,7 @@
   #define EZPP_THREAD_ID              (size_t)syscall(SYS_gettid)
 #endif
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
 #define EZPP_OPT_SAVE_IN_DTOR         0x80
 
@@ -90,8 +90,8 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-#define EZPP_CLS_REGISTER()           _EZPP_CLS_REGISTER_BASE(_)
-#define EZPP_CLS_INIT()               _EZPP_CLS_INIT_BASE(_, 0, "")
+#define EZPP_CLS_REGISTER()           _EZPP_CLS_REGISTER_BASE()
+#define EZPP_CLS_INIT()               _EZPP_CLS_INIT_BASE(, 0, "")
 
 #define EZPP_CLS_REGISTER_EX()        _EZPP_CLS_REGISTER_BASE(ex_)
 #define EZPP_CLS_INIT_EX(desc)        _EZPP_CLS_INIT_BASE(ex_, 0, desc)
@@ -116,7 +116,7 @@
 #define EZPP_ILDO_EX_BEGIN(x)         _EZPP_ILDO_BEGIN_BASE(ex_##x)
 #define EZPP_ILDO_EX_END(x)           _EZPP_ILDO_END_BASE(ex_##x)
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
 #define EZPP_NODE_IN_LOOP             0x08
 #define EZPP_NODE_DIRECT_OUTPUT       0x04
@@ -124,6 +124,185 @@
 #define EZPP_NODE_CLS                 0x01
 
 //////////////////////////////////////////////////////////////////////////
+
+#if __cplusplus >= 201103L || _MSC_VER >= 1700
+  #include <atomic>
+#else
+namespace std {
+
+  typedef enum memory_order {
+    memory_order_relaxed,
+    memory_order_consume,
+    memory_order_acquire,
+    memory_order_release,
+    memory_order_acq_rel,
+    memory_order_seq_cst
+} memory_order;
+
+  template <typename T>
+  class atomic {
+#ifdef _MSC_VER
+    template <typename T, size_t N = sizeof(T)>
+    struct interlocked {};
+
+    template <typename T>
+    struct interlocked<T, 4> {
+      static inline T increment(T volatile* x) {
+        return static_cast<T>(_InterlockedIncrement(reinterpret_cast<volatile long*>(x)));
+      }
+      static inline T decrement(T volatile* x) {
+        return static_cast<T>(_InterlockedDecrement(reinterpret_cast<volatile long*>(x)));
+      }
+      static inline T add(T volatile* x, T delta) {
+        return static_cast<T>(_InterlockedExchangeAdd(reinterpret_cast<volatile long*>(x), delta));
+      }
+      static inline T compare_exchange(T volatile* x, const T new_val, const T expected_val) {
+        return static_cast<T>(
+          _InterlockedCompareExchange(reinterpret_cast<volatile long*>(x),
+            static_cast<const long>(new_val), static_cast<const long>(expected_val)));
+      }
+      static inline T exchange(T volatile* x, const T new_val) {
+        return static_cast<T>(
+          _InterlockedExchange(
+            reinterpret_cast<volatile long*>(x), static_cast<const long>(new_val)));
+      }
+    };
+
+    template <typename T>
+    struct interlocked<T, 8> {
+      static inline T increment(T volatile* x) {
+#if defined(_M_X64)
+        return static_cast<T>(_InterlockedIncrement64(reinterpret_cast<volatile __int64*>(x)));
+#else
+        return add(x, 1);
+#endif  // _M_X64
+      }
+      static inline T decrement(T volatile* x) {
+#if defined(_M_X64)
+        return static_cast<T>(_InterlockedDecrement64(reinterpret_cast<volatile __int64*>(x)));
+#else
+        return add(x, -1);
+#endif  // _M_X64
+      }
+      static inline T add(T volatile* x, T delta) {
+#if defined(_M_X64)
+        return static_cast<T>(_InterlockedExchangeAdd64(reinterpret_cast<volatile __int64*>(x), delta));
+#else
+        __int64 old_val, new_val;
+        do {
+          old_val = static_cast<__int64>(*x);
+          new_val = old_val + static_cast<__int64>(delta);
+        } while (_InterlockedCompareExchange64(
+                   reinterpret_cast<volatile __int64*>(x), new_val, old_val) !=
+                 old_val);
+        return static_cast<T>(new_val);
+#endif  // _M_X64
+      }
+      static inline T compare_exchange(T volatile* x, const T new_val, const T expected_val) {
+        return static_cast<T>(
+          _InterlockedCompareExchange64(reinterpret_cast<volatile __int64*>(x), 
+            static_cast<const __int64>(new_val), static_cast<const __int64>(expected_val)));
+      }
+      static inline T exchange(T volatile* x, const T new_val) {
+#if defined(_M_X64)
+        return static_cast<T>(
+          _InterlockedExchange64(reinterpret_cast<volatile __int64*>(x),
+            static_cast<const __int64>(new_val)));
+#else
+        __int64 old_val;
+        do {
+          old_val = static_cast<__int64>(*x);
+        } while (_InterlockedCompareExchange64(
+                   reinterpret_cast<volatile __int64*>(x), new_val, old_val) !=
+                 old_val);
+        return static_cast<T>(old_val);
+#endif  // _M_X64
+      }
+    };
+#endif
+
+  public:
+    atomic() : value_(static_cast<T>(0)) {}
+    explicit atomic(const T value) : value_(value) {}
+
+    T operator++() {
+  #ifdef _MSC_VER
+      return interlocked<T>::increment(&value_);
+  #else
+      return __atomic_add_fetch(&value_, 1, __ATOMIC_SEQ_CST);
+  #endif
+    }
+
+    T operator++(int) {
+      T v = load(); ++(*this); return v;
+    }
+
+    T operator--() {
+  #ifdef _MSC_VER
+      return interlocked<T>::decrement(&value_);
+  #else
+      return __atomic_sub_fetch(&value_, 1, __ATOMIC_SEQ_CST);
+  #endif
+    }
+
+    T operator+=(T v) {
+  #ifdef _MSC_VER
+      return interlocked<T>::add(&value_, v);
+  #else
+      return __atomic_add_fetch(&value_, v, __ATOMIC_SEQ_CST);
+  #endif
+    }
+
+    bool compare_exchange_strong(T& expected_val, T new_val, memory_order order = memory_order_seq_cst) {
+  #ifdef _MSC_VER
+      return expected_val == interlocked<T>::compare_exchange(&value_, new_val, expected_val);
+  #else
+      return __atomic_compare_exchange_n(&value_, &expected_val, new_val, 0, order, __ATOMIC_SEQ_CST);
+  #endif
+    }
+
+    void store(const T new_val, memory_order order = memory_order_seq_cst) {
+  #ifdef _MSC_VER
+      interlocked<T>::exchange(&value_, new_val);
+  #else
+      __atomic_store_n(&value_, new_val, order);
+  #endif
+    }
+
+    T load(memory_order order = memory_order_seq_cst) const {
+  #ifdef _MSC_VER
+      return interlocked<T>::add(const_cast<volatile T*>(&value_), 0);
+  #else
+      return __atomic_load_n(&value_, order);
+  #endif
+    }
+
+    T operator=(const T new_value) {
+      store(new_value);
+      return new_value;
+    }
+
+    operator T() const {
+      return load();
+    }
+
+  private:
+    volatile T value_;
+  };
+
+#ifndef _MSC_VER
+  template<typename>
+  struct hash {};
+
+  template<>
+  struct hash<size_t> {
+    inline size_t operator()(size_t v) const {
+      return v;
+    }
+  };
+#endif
+}
+#endif
 
 namespace ezpp {
 
@@ -190,7 +369,7 @@ namespace ezpp {
       typename IndexType = size_t,
       typename Allocator = std::allocator<char> >
 
-    struct AtomicUnorderedInsertMap {
+    struct AtomicUnorderedMap {
 
     typedef Key key_type;
     typedef Value mapped_type;
@@ -202,7 +381,7 @@ namespace ezpp {
     typedef const value_type& const_reference;
 
     typedef struct ConstIterator {
-      ConstIterator(const AtomicUnorderedInsertMap& owner, IndexType slot)
+      ConstIterator(const AtomicUnorderedMap& owner, IndexType slot)
         : owner_(owner)
         , slot_(slot)
       {}
@@ -228,7 +407,7 @@ namespace ezpp {
 
       // post-increment
       ConstIterator operator++(int /* dummy */) {
-        auto prev = *this;
+        ConstIterator prev = *this;
         ++*this;
         return prev;
       }
@@ -241,19 +420,13 @@ namespace ezpp {
       }
 
     private:
-      const AtomicUnorderedInsertMap& owner_;
+      const AtomicUnorderedMap& owner_;
       IndexType slot_;
     } const_iterator;
 
     friend ConstIterator;
 
-    /// Constructs a map that will support the insertion of maxSize key-value
-    /// pairs without exceeding the max load factor.  Load factors of greater
-    /// than 1 are not supported, and once the actual load factor of the
-    /// map approaches 1 the insert performance will suffer.  The capacity
-    /// is limited to 2^30 (about a billion) for the default IndexType,
-    /// beyond which we will throw invalid_argument.
-    explicit AtomicUnorderedInsertMap(size_t maxSize,
+    explicit AtomicUnorderedMap(size_t maxSize,
                       float maxLoadFactor = 0.8f,
                       const Allocator& alloc = Allocator())
       : allocator_(alloc)
@@ -266,7 +439,7 @@ namespace ezpp {
       }
       if (capacity < maxSize || capacity > avail) {
         throw std::invalid_argument(
-          "AtomicUnorderedInsertMap capacity must fit in IndexType with 2 bits "
+          "AtomicUnorderedMap capacity must fit in IndexType with 2 bits "
           "left over");
       }
 
@@ -280,31 +453,12 @@ namespace ezpp {
       slots_[0].stateUpdate(EMPTY, CONSTRUCTING);
     }
 
-    ~AtomicUnorderedInsertMap() {
+    ~AtomicUnorderedMap() {
       allocator_.deallocate(reinterpret_cast<char*>(slots_), mmapRequested_);
     }
 
-    /// Searches for the key, returning (iter,false) if it is found.
-    /// If it is not found calls the functor Func with a void* argument
-    /// that is raw storage suitable for placement construction of a Value
-    /// (see raw_value_type), then returns (iter,true).  May call Func and
-    /// then return (iter,false) if there are other concurrent writes, in
-    /// which case the newly constructed value will be immediately destroyed.
-    ///
-    /// This function does not block other readers or writers.  If there
-    /// are other concurrent writes, many parallel calls to func may happen
-    /// and only the first one to complete will win.  The values constructed
-    /// by the other calls to func will be destroyed.
-    ///
-    /// Usage:
-    ///
-    ///  AtomicUnorderedInsertMap<std::string,std::string> memo;
-    ///
-    ///  auto value = memo.findOrConstruct(key, [=](void* raw) {
-    ///    new (raw) std::string(computation(key));
-    ///  })->first;
-    template <typename Func>
-    std::pair<const_iterator, bool> findOrConstruct(const Key& key, Func func) {
+    template <typename Func, typename V>
+    std::pair<const_iterator, bool> findOrConstruct(const Key& key, Func func, const V* value) {
       IndexType const slot = keyToSlotIdx(key);
       IndexType prev = slots_[slot].headAndState_.load(std::memory_order_acquire);
 
@@ -315,7 +469,7 @@ namespace ezpp {
 
       IndexType idx = allocateNear(slot);
       new (&slots_[idx].keyValue().first) Key(key);
-      func(static_cast<void*>(&slots_[idx].keyValue().second));
+      func(static_cast<void*>(&slots_[idx].keyValue().second), value);
 
       while (true) {
         slots_[idx].next_ = prev >> 2;
@@ -351,15 +505,13 @@ namespace ezpp {
       }
     }
 
-    /// This isn't really emplace, but it is what we need to test.
+    /// This isn't really insert, but it is what we need to test.
     /// Eventually we can duplicate all of the std::pair constructor
     /// forms, including a recursive tuple forwarding template
     /// http://functionalcpp.wordpress.com/2013/08/28/tuple-forwarding/).
     template <class K, class V>
-    std::pair<const_iterator,bool> emplace(const K& key, V&& value) {
-      return findOrConstruct(key, [&](void* raw) {
-        new (raw) Value(std::forward<V>(value));
-      });
+    std::pair<const_iterator,bool> insert(const K& key, const V& value) {
+      return findOrConstruct(key, &AtomicUnorderedMap::copyCtor<V>, &value);
     }
 
     const_iterator find(const Key& key) const {
@@ -384,11 +536,12 @@ namespace ezpp {
         slots_[i].~Slot();
       }
       memset(slots_, 0, mmapRequested_);
+      slots_[0].stateUpdate(EMPTY, CONSTRUCTING);
     }
 
     // Add by orca.zhang@yahoo.com
     bool erase(const Key& key) const {
-      KeyEqual ke = {};
+      KeyEqual ke;
       IndexType slot = keyToSlotIdx(key);
       IndexType hs = slots_[slot].headAndState_.load(std::memory_order_acquire);
       IndexType last_slot = 0;
@@ -408,11 +561,13 @@ namespace ezpp {
     }
 
     private:
-      enum : IndexType {
+      enum {
         kMaxAllocationTries = 1000, // after this we throw
       };
 
-      enum BucketState : IndexType {
+      typedef IndexType BucketState;
+
+      enum {
         EMPTY = 0,
         CONSTRUCTING = 1,
         LINKED = 2,
@@ -436,8 +591,7 @@ namespace ezpp {
         IndexType next_;
 
         /// Key and Value
-        typename std::aligned_storage<sizeof(value_type),
-                      alignof(value_type)>::type raw_;
+        unsigned char raw_[sizeof(value_type)];
 
         ~Slot() {
           BucketState s = state();
@@ -459,12 +613,22 @@ namespace ezpp {
 
         value_type& keyValue() {
           assert(state() != EMPTY);
-          return *static_cast<value_type*>(static_cast<void*>(&raw_));
+          union {
+            unsigned char* p;
+            value_type* v;
+          } u;
+          u.p = raw_;
+          return *u.v;
         }
 
         const value_type& keyValue() const {
           assert(state() != EMPTY);
-          return *static_cast<const value_type*>(static_cast<const void*>(&raw_));
+          union {
+            unsigned char* p;
+            value_type* v;
+          } u;
+          u.p = raw_;
+          return *u.v;
         }
 
       };
@@ -492,7 +656,7 @@ namespace ezpp {
       }
 
       IndexType find(const Key& key, IndexType slot) const {
-        KeyEqual ke = {};
+        KeyEqual ke;
         IndexType hs = slots_[slot].headAndState_.load(std::memory_order_acquire);
         for (slot = hs >> 2; slot != 0; slot = slots_[slot].next_) {
           if (ke(key, slots_[slot].keyValue().first)) {
@@ -528,17 +692,23 @@ namespace ezpp {
           if (sizeof(IndexType) <= 4) {
             rv = IndexType(rand() % numSlots_);
           } else {
-            rv = IndexType(((size_t(rand()) << 32) + rand()) % numSlots_);
+            rv = IndexType(((int64_t(rand()) << 32) + rand()) % numSlots_);
           }
           assert(rv < numSlots_);
           return rv;
         }
       }
+
+      template<typename V>
+      static void copyCtor(void* raw, const V* v) {
+        assert(v);
+        new (raw) Value(*v);
+      }
     };
 
     /// MutableAtom is a tiny wrapper than gives you the option of atomically
-    /// updating values inserted into an AtomicUnorderedInsertMap<K,
-    /// MutableAtom<V>>.  This relies on AtomicUnorderedInsertMap's guarantee
+    /// updating values inserted into an AtomicUnorderedMap<K,
+    /// MutableAtom<V>>.  This relies on AtomicUnorderedMap's guarantee
     /// that it doesn't move values.
     template <typename T, template <typename> class Atom = std::atomic>
     struct MutableAtom {
@@ -548,7 +718,7 @@ namespace ezpp {
 
     /// MutableData is a tiny wrapper than gives you the option of using an
     /// external concurrency control mechanism to updating values inserted
-    /// into an AtomicUnorderedInsertMap.
+    /// into an AtomicUnorderedMap.
     template <typename T>
     struct MutableData {
       mutable T data;
@@ -589,7 +759,10 @@ namespace ezpp {
     }
 
     inline size_t hash() const {
-      return _line ^ std::hash<std::string>()(_name);
+      unsigned long __h = 0;
+      for (size_t i = 0 ; i < _name.size() ; ++i)
+        __h = 5 * __h + _name[i];
+      return _line ^ size_t(__h);
     }
 
     inline const std::string& getName() const {
@@ -602,7 +775,7 @@ namespace ezpp {
     int         _endLine;
     std::string _name; // __FUNCTION__ \ typeid(*this).name()
     std::string _ext;
-  }; // End class node_desc
+  };
 
   class node {
   public:
@@ -610,9 +783,9 @@ namespace ezpp {
 
     inline const std::string& getName() const { return _desc.getName(); }
     inline int64_t getCallCnt() const         { return _callCnt; }
-    inline int64_t getCostTime() const        { return _totalCostTime; }
-    inline bool checkInUse()                  { return (_totalRefCnt > 0); }
-    inline void setReleaseUntilEnd()          { _releaseUntilEnd = true;}
+    inline int64_t getCostTime() const        { return _totalCost; }
+    inline bool checkInUse()                  { return _totalRefCnt > 0; }
+    inline void setReleaseUntilEnd()          { _releaseUntilEnd = true; }
     inline void endLine(int endLine)          { _desc.endLine(endLine); }
 
     void begin(int64_t c12n);
@@ -622,22 +795,20 @@ namespace ezpp {
     void output(FILE* fp);
 
   protected:
-    static inline void atomic_init(void* raw) {
+    static inline void atomic_init(void* raw, const folly::MutableAtom<int64_t>*) {
       *(int64_t*)raw = 0;
     }
 
     node_desc _desc;
 
-    typedef folly::AtomicUnorderedInsertMap<size_t, folly::MutableAtom<int64_t> > time_map;
+    typedef folly::AtomicUnorderedMap<size_t, folly::MutableAtom<int64_t> > time_map;
     time_map _beginMap;
     time_map _costMap;
-
-    std::atomic<int64_t> _lastStartTime;
-    std::atomic<int64_t> _totalCostTime;
-
-    std::atomic<int64_t> _callCnt;
-
     time_map _refMap;
+
+    std::atomic<int64_t> _start;
+    std::atomic<int64_t> _totalCost;
+    std::atomic<int64_t> _callCnt;
     std::atomic<int64_t> _totalRefCnt;
 
     unsigned char _flags;
@@ -666,10 +837,7 @@ namespace ezpp {
     void addOption(unsigned char optModify);
     void removeOption(unsigned char optModify);
 
-    inline void setOutputFileName(const std::string &file) {
-      _file = file;
-    }
-
+    inline void setOutputFileName(const std::string &file) { _file = file; }
     std::string getOutputFileName();
 
     void print();
@@ -701,7 +869,7 @@ namespace ezpp {
     void output(FILE* fp);
     static void outputTime(FILE* fp, int64_t duration);
 
-    typedef folly::AtomicUnorderedInsertMap<node_desc, folly::MutableData<node*>, node_desc_hasher> node_map;
+    typedef folly::AtomicUnorderedMap<node_desc, folly::MutableData<node*>, node_desc_hasher> node_map;
 
     node_map _doMap;
     node_map _nodeMap;
@@ -785,13 +953,13 @@ namespace ezpp {
       return 0;
     }
     node_map& map = (flags & EZPP_NODE_DIRECT_OUTPUT) ? inst()._doMap : inst()._nodeMap;
-    auto it = map.find(desc);
+    node_map::const_iterator it = map.find(desc);
     if (it != map.cend()) {
       it->second.data->call(c12n);
       return it->second.data;
     }
     node* n = new node(desc, c12n, flags);
-    map.emplace(desc, n);
+    map.insert(desc, n);
     return n;
   }
 
@@ -819,8 +987,8 @@ namespace ezpp {
       if ((_option & EZPP_OPT_SORT_BY_NAME) || !(_option & EZPP_OPT_SORT)) {
         std::sort(array.begin(), array.end(), detail::NameSort);
         fprintf(fp, "\r\n     [Sort By Name]\r\n\r\n");
-        for (size_t i = 0; i < array.size(); ++i) {
-          fprintf(fp, "No.%zd\r\n", i + 1);
+        for (unsigned i = 0; i < array.size(); ++i) {
+          fprintf(fp, "No.%u\r\n", i + 1);
           array[i]->output(fp);
         }
       }
@@ -828,8 +996,8 @@ namespace ezpp {
       if (_option & EZPP_OPT_SORT_BY_CALL) {
         std::sort(array.begin(), array.end(), detail::CallCntSort);
         fprintf(fp, "\r\n     [Sort By Call]\r\n\r\n");
-        for (size_t i = 0; i < array.size(); ++i) {
-          fprintf(fp, "No.%zd\r\n", i + 1);
+        for (unsigned i = 0; i < array.size(); ++i) {
+          fprintf(fp, "No.%u\r\n", i + 1);
           array[i]->output(fp);
         }
       }
@@ -837,8 +1005,8 @@ namespace ezpp {
       if (_option & EZPP_OPT_SORT_BY_COST) {
         std::sort(array.begin(), array.end(), detail::CostTimeSort);
         fprintf(fp, "\r\n     [Sort By Cost]\r\n\r\n");
-        for (size_t i = 0; i < array.size(); ++i) {
-          fprintf(fp, "No.%zd\r\n", i + 1);
+        for (unsigned i = 0; i < array.size(); ++i) {
+          fprintf(fp, "No.%u\r\n", i + 1);
           array[i]->output(fp);
         }
       }
@@ -931,10 +1099,10 @@ namespace ezpp {
     : _desc(desc)
     , _beginMap(EZPP_NODE_MAX)
     , _costMap(EZPP_NODE_MAX)
-    , _lastStartTime(0)
-    , _totalCostTime(0)
-    , _callCnt(1)
     , _refMap(EZPP_NODE_MAX)
+    , _start(0)
+    , _totalCost(0)
+    , _callCnt(1)
     , _totalRefCnt(1)
     , _flags(flags)
     , _releaseUntilEnd(false)
@@ -943,10 +1111,10 @@ namespace ezpp {
       begin(c12n);
     else
       ++_totalRefCnt;
-    _lastStartTime = time_now();
+    _start = time_now();
   }
 
-  #define _GET_(m, k) m.findOrConstruct(k, atomic_init).first->second.data
+  #define _GET_(m, k) m.findOrConstruct(k, atomic_init, (const folly::MutableAtom<int64_t>*)0).first->second.data
 
   // public
   void 
@@ -955,7 +1123,7 @@ namespace ezpp {
     if (!_GET_(_refMap, c12n)++ || (_flags & EZPP_NODE_CLS))
       _GET_(_beginMap, c12n) = now;
     if (!_totalRefCnt)
-      _lastStartTime = now;
+      _start = now;
     ++_totalRefCnt;
     ++_callCnt;
   }
@@ -967,9 +1135,9 @@ namespace ezpp {
       call(c12n);
       return;
     }
-    _beginMap.emplace(c12n, time_now());
-    _costMap.emplace(c12n, 0);
-    _refMap.emplace(EZPP_THREAD_ID, 1);
+    _beginMap.insert(c12n, time_now());
+    _costMap.insert(c12n, 0);
+    _refMap.insert(EZPP_THREAD_ID, 1);
   }
 
   // public
@@ -981,7 +1149,7 @@ namespace ezpp {
       _GET_(_costMap, c12n) += now - _GET_(_beginMap, c12n);
     }
     if (!_totalRefCnt) {
-      _totalCostTime += now - _lastStartTime;
+      _totalCost += now - _start;
 
       if ((_flags & EZPP_NODE_DIRECT_OUTPUT)) {
         output(stdout);
@@ -1004,10 +1172,10 @@ namespace ezpp {
     if (_totalRefCnt)
       fprintf(fp, "Warning: Unbalance detected! Mismatch or haven't been ended yet!\r\n");
     fprintf(fp, "[Time] ");
-    ezpp::outputTime(fp, _totalCostTime);
+    ezpp::outputTime(fp, _totalCost);
     if (_totalRefCnt) {
       fprintf(fp, " (+ ");
-      ezpp::outputTime(fp, time_now() - _lastStartTime);
+      ezpp::outputTime(fp, time_now() - _start);
       fprintf(fp, ")");
     }
     time_map::const_iterator it = _costMap.cbegin();
