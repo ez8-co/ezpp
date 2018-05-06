@@ -2,6 +2,7 @@
   ezpp -- Easy performance profiler for C++.
 
   Copyright (c) 2010-2017 <http://ez8.co> <orca.zhang@yahoo.com>
+
   This library is released under the MIT License.
   Please see LICENSE file or visit https://github.com/ez8-co/ezpp for details.
  */
@@ -19,6 +20,16 @@
 #include <cstring>
 #include <cassert>
 #include <cstdio>
+
+#if  ( defined (__LP64__) \
+    || defined (__64BIT__) \
+    || defined (_LP64) \
+    || ((defined(__WORDSIZE)) && (__WORDSIZE == 64)) \
+	|| defined(WIN64))
+
+#define EZPP_X64 1
+
+#endif
 
 #ifdef _MSC_VER
   #include <intrin.h>
@@ -137,97 +148,108 @@ namespace std {
     memory_order_release,
     memory_order_acq_rel,
     memory_order_seq_cst
-} memory_order;
+  } memory_order;
+
+#ifdef _MSC_VER
+  template <typename T, size_t N = sizeof(T)>
+  struct interlocked {};
+
+  template <typename T>
+  struct interlocked<T, 4> {
+    static inline T incre(T volatile* x) {
+      return static_cast<T>(_InterlockedIncrement(reinterpret_cast<volatile long*>(x)));
+    }
+    static inline T decre(T volatile* x) {
+      return static_cast<T>(_InterlockedDecrement(reinterpret_cast<volatile long*>(x)));
+    }
+    static inline T add(T volatile* x, T delta) {
+      return static_cast<T>(_InterlockedExchangeAdd(reinterpret_cast<volatile long*>(x), delta));
+    }
+    static inline T compare_exchange(T volatile* x, const T new_val, const T expected_val) {
+      return static_cast<T>(
+        _InterlockedCompareExchange(reinterpret_cast<volatile long*>(x),
+          static_cast<const long>(new_val), static_cast<const long>(expected_val)));
+    }
+    static inline T exchange(T volatile* x, const T new_val) {
+      return static_cast<T>(
+        _InterlockedExchange(
+          reinterpret_cast<volatile long*>(x), static_cast<const long>(new_val)));
+    }
+  };
+
+  template <typename T>
+  struct interlocked<T, 8> {
+    static inline T incre(T volatile* x) {
+#ifdef EZPP_X64
+      return static_cast<T>(_InterlockedIncrement64(reinterpret_cast<volatile __int64*>(x)));
+#else
+      return add(x, 1);
+#endif  // EZPP_X64
+    }
+    static inline T decre(T volatile* x) {
+#ifdef EZPP_X64
+      return static_cast<T>(_InterlockedDecrement64(reinterpret_cast<volatile __int64*>(x)));
+#else
+      return add(x, -1);
+#endif  // EZPP_X64
+    }
+    static inline T add(T volatile* x, T delta) {
+#ifdef EZPP_X64
+      return static_cast<T>(_InterlockedExchangeAdd64(reinterpret_cast<volatile __int64*>(x), delta));
+#else
+      __int64 old_val, new_val;
+      do {
+        old_val = static_cast<__int64>(*x);
+        new_val = old_val + static_cast<__int64>(delta);
+      } while (_InterlockedCompareExchange64(
+                 reinterpret_cast<volatile __int64*>(x), new_val, old_val) !=
+               old_val);
+      return static_cast<T>(new_val);
+#endif  // EZPP_X64
+    }
+    static inline T compare_exchange(T volatile* x, const T new_val, const T expected_val) {
+      return static_cast<T>(
+        _InterlockedCompareExchange64(reinterpret_cast<volatile __int64*>(x), 
+          static_cast<const __int64>(new_val), static_cast<const __int64>(expected_val)));
+    }
+    static inline T exchange(T volatile* x, const T new_val) {
+#ifdef EZPP_X64
+      return static_cast<T>(
+        _InterlockedExchange64(reinterpret_cast<volatile __int64*>(x),
+          static_cast<const __int64>(new_val)));
+#else
+      __int64 old_val;
+      do {
+        old_val = static_cast<__int64>(*x);
+      } while (_InterlockedCompareExchange64(
+                 reinterpret_cast<volatile __int64*>(x), new_val, old_val) !=
+               old_val);
+      return static_cast<T>(old_val);
+#endif  // EZPP_X64
+    }
+  };
+
+#else
+
+  template<typename>
+  struct hash {};
+
+  template<>
+  struct hash<size_t> {
+    inline size_t operator()(size_t v) const { return v; }
+  };
+
+#endif
 
   template <typename T>
   class atomic {
-#ifdef _MSC_VER
-    template <typename T, size_t N = sizeof(T)>
-    struct interlocked {};
-
-    template <typename T>
-    struct interlocked<T, 4> {
-      static inline T increment(T volatile* x) {
-        return static_cast<T>(_InterlockedIncrement(reinterpret_cast<volatile long*>(x)));
-      }
-      static inline T decrement(T volatile* x) {
-        return static_cast<T>(_InterlockedDecrement(reinterpret_cast<volatile long*>(x)));
-      }
-      static inline T add(T volatile* x, T delta) {
-        return static_cast<T>(_InterlockedExchangeAdd(reinterpret_cast<volatile long*>(x), delta));
-      }
-      static inline T compare_exchange(T volatile* x, const T new_val, const T expected_val) {
-        return static_cast<T>(
-          _InterlockedCompareExchange(reinterpret_cast<volatile long*>(x),
-            static_cast<const long>(new_val), static_cast<const long>(expected_val)));
-      }
-      static inline T exchange(T volatile* x, const T new_val) {
-        return static_cast<T>(
-          _InterlockedExchange(
-            reinterpret_cast<volatile long*>(x), static_cast<const long>(new_val)));
-      }
-    };
-
-    template <typename T>
-    struct interlocked<T, 8> {
-      static inline T increment(T volatile* x) {
-#if defined(_M_X64)
-        return static_cast<T>(_InterlockedIncrement64(reinterpret_cast<volatile __int64*>(x)));
-#else
-        return add(x, 1);
-#endif  // _M_X64
-      }
-      static inline T decrement(T volatile* x) {
-#if defined(_M_X64)
-        return static_cast<T>(_InterlockedDecrement64(reinterpret_cast<volatile __int64*>(x)));
-#else
-        return add(x, -1);
-#endif  // _M_X64
-      }
-      static inline T add(T volatile* x, T delta) {
-#if defined(_M_X64)
-        return static_cast<T>(_InterlockedExchangeAdd64(reinterpret_cast<volatile __int64*>(x), delta));
-#else
-        __int64 old_val, new_val;
-        do {
-          old_val = static_cast<__int64>(*x);
-          new_val = old_val + static_cast<__int64>(delta);
-        } while (_InterlockedCompareExchange64(
-                   reinterpret_cast<volatile __int64*>(x), new_val, old_val) !=
-                 old_val);
-        return static_cast<T>(new_val);
-#endif  // _M_X64
-      }
-      static inline T compare_exchange(T volatile* x, const T new_val, const T expected_val) {
-        return static_cast<T>(
-          _InterlockedCompareExchange64(reinterpret_cast<volatile __int64*>(x), 
-            static_cast<const __int64>(new_val), static_cast<const __int64>(expected_val)));
-      }
-      static inline T exchange(T volatile* x, const T new_val) {
-#if defined(_M_X64)
-        return static_cast<T>(
-          _InterlockedExchange64(reinterpret_cast<volatile __int64*>(x),
-            static_cast<const __int64>(new_val)));
-#else
-        __int64 old_val;
-        do {
-          old_val = static_cast<__int64>(*x);
-        } while (_InterlockedCompareExchange64(
-                   reinterpret_cast<volatile __int64*>(x), new_val, old_val) !=
-                 old_val);
-        return static_cast<T>(old_val);
-#endif  // _M_X64
-      }
-    };
-#endif
-
   public:
     atomic() : value_(static_cast<T>(0)) {}
     explicit atomic(const T value) : value_(value) {}
 
     T operator++() {
   #ifdef _MSC_VER
-      return interlocked<T>::increment(&value_);
+      return interlocked<T>::incre(&value_);
   #else
       return __atomic_add_fetch(&value_, 1, __ATOMIC_SEQ_CST);
   #endif
@@ -239,7 +261,7 @@ namespace std {
 
     T operator--() {
   #ifdef _MSC_VER
-      return interlocked<T>::decrement(&value_);
+      return interlocked<T>::decre(&value_);
   #else
       return __atomic_sub_fetch(&value_, 1, __ATOMIC_SEQ_CST);
   #endif
@@ -289,18 +311,6 @@ namespace std {
   private:
     volatile T value_;
   };
-
-#ifndef _MSC_VER
-  template<typename>
-  struct hash {};
-
-  template<>
-  struct hash<size_t> {
-    inline size_t operator()(size_t v) const {
-      return v;
-    }
-  };
-#endif
 }
 #endif
 
@@ -347,7 +357,6 @@ namespace ezpp {
   * See the License for the specific language governing permissions and
   * limitations under the License.
   */
-
   namespace folly {
 
     size_t nextPowTwo(size_t v) {
@@ -357,7 +366,7 @@ namespace ezpp {
     #else
       int x = __builtin_clzll(v - 1);
     #endif
-      return v ? (size_t(1) << (v - 1 ? ((8 * sizeof(unsigned long long) - 1) ^ x) + 1 : 0)) : 1;
+      return v ? (size_t(1) << (v - 1 ? (((sizeof(unsigned long long) << 3) - 1) ^ x) + 1 : 0)) : 1;
     }
 
     template <
@@ -386,16 +395,16 @@ namespace ezpp {
         , slot_(slot)
       {}
 
-      const value_type& operator* () const {
+      const value_type& operator*() const {
         return owner_.slots_[slot_].keyValue();
       }
 
-      const value_type* operator-> () const {
+      const value_type* operator->() const {
         return &owner_.slots_[slot_].keyValue();
       }
 
       // pre-increment
-      const ConstIterator& operator++ () {
+      const ConstIterator& operator++() {
         while (slot_ > 0) {
           --slot_;
           if (owner_.slots_[slot_].state() == LINKED) {
@@ -412,10 +421,10 @@ namespace ezpp {
         return prev;
       }
 
-      bool operator== (const ConstIterator& rhs) const {
+      bool operator==(const ConstIterator& rhs) const {
         return slot_ == rhs.slot_;
       }
-      bool operator!= (const ConstIterator& rhs) const {
+      bool operator!=(const ConstIterator& rhs) const {
         return !(*this == rhs);
       }
 
@@ -505,10 +514,6 @@ namespace ezpp {
       }
     }
 
-    /// This isn't really insert, but it is what we need to test.
-    /// Eventually we can duplicate all of the std::pair constructor
-    /// forms, including a recursive tuple forwarding template
-    /// http://functionalcpp.wordpress.com/2013/08/28/tuple-forwarding/).
     template <class K, class V>
     std::pair<const_iterator,bool> insert(const K& key, const V& value) {
       return findOrConstruct(key, &AtomicUnorderedMap::copyCtor<V>, &value);
@@ -750,24 +755,17 @@ namespace ezpp {
       }
     }
 
-    inline void endLine(int endLine) {
-      _endLine = endLine;
-    }
+    inline void endLine(int endLine) { _endLine = endLine; }
 
     inline bool operator==(const node_desc &other) const {
-      return _line == other._line && _name == other._name && !strcmp(file, other.file);
+      return _line == other._line && _name == other._name && !strcmp(file, other.file) && _ext == other._ext;
     }
 
     inline size_t hash() const {
-      unsigned long __h = 0;
-      for (size_t i = 0 ; i < _name.size() ; ++i)
-        __h = 5 * __h + _name[i];
-      return _line ^ size_t(__h);
+      return _line ^ fast_hash(file, strlen(file)) ^ fast_hash(_name.data(), _name.size()) ^ fast_hash(_ext.data(), _ext.size());
     }
 
-    inline const std::string& getName() const {
-      return _name;
-    }
+    inline const std::string& name() const { return _name; }
 
   private:
     const char* file;
@@ -775,18 +773,32 @@ namespace ezpp {
     int         _endLine;
     std::string _name; // __FUNCTION__ \ typeid(*this).name()
     std::string _ext;
+
+    static size_t fast_hash(const char* str, size_t len) {
+      if(!len) return 0;
+      else if(len < sizeof(size_t)) {
+#ifdef EZPP_X64
+        static const size_t mask[] = {0xFF000000UL, 0xFFFF0000UL, 0xFFFFFF00UL};
+#else
+        static const size_t mask[] = {0xFF00000000000000ULL, 0xFFFF000000000000ULL, 0xFFFFFF0000000000ULL, 
+          0xFFFFFFFF00000000ULL, 0xFFFFFFFFFF000000ULL, 0xFFFFFFFFFFFF0000ULL, 0xFFFFFFFFFFFFFF00ULL};
+#endif
+        return *(size_t*)str & mask[len - 1];
+      }
+      return *(size_t*)str ^ fast_hash(str + sizeof(size_t), len - sizeof(size_t));
+    }
   };
 
   class node {
   public:
     friend class ezpp;
 
-    inline const std::string& getName() const { return _desc.getName(); }
-    inline int64_t getCallCnt() const         { return _callCnt; }
-    inline int64_t getCostTime() const        { return _totalCost; }
-    inline bool checkInUse()                  { return _totalRefCnt > 0; }
-    inline void setReleaseUntilEnd()          { _releaseUntilEnd = true; }
-    inline void endLine(int endLine)          { _desc.endLine(endLine); }
+    inline const std::string& name() const { return _desc.name(); }
+    inline int64_t callCnt() const         { return _callCnt; }
+    inline int64_t costTime() const        { return _totalCost; }
+    inline bool checkInUse()               { return _totalRefCnt > 0; }
+    inline void setReleaseUntilEnd()       { _releaseUntilEnd = true; }
+    inline void endLine(int endLine)       { _desc.endLine(endLine); }
 
     void begin(int64_t c12n);
     void end(int64_t c12n);
@@ -889,16 +901,16 @@ namespace ezpp {
   }
 
   namespace detail {
-    static bool NameSort(node* left, node* right) {
-      return left->getName() < right->getName();
+    static bool NameSort(node* lhs, node* rhs) {
+      return lhs->name() < rhs->name();
     }
 
-    static bool CallCntSort(node* left, node* right) {
-      return left->getCallCnt() < right->getCallCnt();
+    static bool CallCntSort(node* lhs, node* rhs) {
+      return lhs->callCnt() < rhs->callCnt();
     }
 
-    static bool CostTimeSort(node* left, node* right) {
-      return left->getCostTime() < right->getCostTime();
+    static bool CostTimeSort(node* lhs, node* rhs) {
+      return lhs->costTime() < rhs->costTime();
     }
   }
 
