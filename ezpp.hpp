@@ -775,16 +775,15 @@ namespace ezpp {
     std::string _ext;
 
     static size_t fast_hash(const char* str, size_t len) {
-      if(!len) return 0;
-      else if(len < sizeof(size_t)) {
 #ifdef EZPP_X64
-        static const size_t mask[] = {0xFF000000UL, 0xFFFF0000UL, 0xFFFFFF00UL};
-#else
         static const size_t mask[] = {0xFF00000000000000ULL, 0xFFFF000000000000ULL, 0xFFFFFF0000000000ULL, 
           0xFFFFFFFF00000000ULL, 0xFFFFFFFFFF000000ULL, 0xFFFFFFFFFFFF0000ULL, 0xFFFFFFFFFFFFFF00ULL};
+#else
+        static const size_t mask[] = {0xFF000000UL, 0xFFFF0000UL, 0xFFFFFF00UL};
 #endif
+      if(!len) return 0;
+      else if(len < sizeof(size_t))
         return *(size_t*)str & mask[len - 1];
-      }
       return *(size_t*)str ^ fast_hash(str + sizeof(size_t), len - sizeof(size_t));
     }
   };
