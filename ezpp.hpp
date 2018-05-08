@@ -21,14 +21,9 @@
 #include <cassert>
 #include <cstdio>
 
-#if  ( defined (__LP64__) \
-    || defined (__64BIT__) \
-    || defined (_LP64) \
-    || ((defined(__WORDSIZE)) && (__WORDSIZE == 64)) \
-	|| defined(WIN64))
-
-#define EZPP_X64 1
-
+#if  ( defined (__LP64__) || defined (__64BIT__) || defined (_LP64) \
+    || ((defined(__WORDSIZE)) && (__WORDSIZE == 64)) || defined(WIN64))
+  #define EZPP_X64 1
 #endif
 
 #ifdef _MSC_VER
@@ -762,7 +757,8 @@ namespace ezpp {
     }
 
     inline size_t hash() const {
-      return _line ^ fast_hash(file, strlen(file)) ^ fast_hash(_name.data(), _name.size()) ^ fast_hash(_ext.data(), _ext.size());
+      return _line ^ fast_hash(file, strlen(file)) ^ 
+        fast_hash(_name.data(), _name.size()) ^ fast_hash(_ext.data(), _ext.size());
     }
 
     inline const std::string& name() const { return _name; }
@@ -782,8 +778,7 @@ namespace ezpp {
         static const size_t mask[] = {0xFF000000UL, 0xFFFF0000UL, 0xFFFFFF00UL};
 #endif
       if(!len) return 0;
-      else if(len < sizeof(size_t))
-        return *(size_t*)str & mask[len - 1];
+      else if(len < sizeof(size_t)) return *(size_t*)str & mask[len - 1];
       return *(size_t*)str ^ fast_hash(str + sizeof(size_t), len - sizeof(size_t));
     }
   };
@@ -862,9 +857,7 @@ namespace ezpp {
 
   protected:
     struct node_desc_hasher {
-      size_t operator()(const node_desc& desc) {
-        return desc.hash();
-      }
+      size_t operator()(const node_desc& desc) { return desc.hash(); }
     };
 
     friend class node;
@@ -1125,6 +1118,18 @@ namespace ezpp {
     _start = time_now();
   }
 
+  // public
+  void 
+  node::begin(int64_t c12n) {
+    if (_beginMap.cbegin() != _beginMap.cend()) {
+      call(c12n);
+      return;
+    }
+    _beginMap.insert(c12n, time_now());
+    _costMap.insert(c12n, 0);
+    _refMap.insert(EZPP_THREAD_ID, 1);
+  }
+
   #define _GET_(m, k) m.findOrConstruct(k, atomic_init, (const folly::MutableAtom<int64_t>*)0).first->second.data
 
   // public
@@ -1137,18 +1142,6 @@ namespace ezpp {
       _start = now;
     ++_totalRefCnt;
     ++_callCnt;
-  }
-
-  // public
-  void 
-  node::begin(int64_t c12n) {
-    if (_beginMap.cbegin() != _beginMap.cend()) {
-      call(c12n);
-      return;
-    }
-    _beginMap.insert(c12n, time_now());
-    _costMap.insert(c12n, 0);
-    _refMap.insert(EZPP_THREAD_ID, 1);
   }
 
   // public
@@ -1201,7 +1194,8 @@ namespace ezpp {
         int64_t total = 0;
         size_t costTimeSize = 0;
         for (time_map::const_iterator it = _costMap.cbegin(); it != _costMap.cend(); ++it) {
-          fprintf(fp, (_flags & EZPP_NODE_CLS) ? "    (Object : 0x%0x) " :"    (Thread ID : %u) ", (unsigned)it->first);
+          fprintf(fp, (_flags & EZPP_NODE_CLS) ? "    (Object : 0x%0x) " :"    (Thread ID : %u) ",
+            (unsigned)it->first);
           ezpp::outputTime(fp, it->second.data);
           fprintf(fp, "\r\n");
           total += it->second.data;
