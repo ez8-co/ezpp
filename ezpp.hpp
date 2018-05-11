@@ -922,7 +922,7 @@ namespace ezpp {
       fprintf(fp, "%.0f min%s, ", minute, minute > 1 ? "s" : "");
     }
 
-    seconds -= duration / 60 / 1000;
+    seconds -= duration / 60000;
     if (seconds < 1) {
       fprintf(fp, "%2.2f ms", seconds * 1000);
     }
