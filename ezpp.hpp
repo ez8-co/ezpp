@@ -21,11 +21,6 @@
 #include <cassert>
 #include <cstdio>
 
-#if  ( defined (__LP64__) || defined (__64BIT__) || defined (_LP64) \
-    || ((defined(__WORDSIZE)) && (__WORDSIZE == 64)) || defined(WIN64))
-  #define EZPP_X64 1
-#endif
-
 #ifdef _MSC_VER
   #include <intrin.h>
   #define LIKELY(x)                   (x)
@@ -175,21 +170,21 @@ namespace std {
   template <typename T>
   struct interlocked<T, 8> {
     static inline T incre(T volatile* x) {
-#ifdef EZPP_X64
+#ifdef WIN64
       return static_cast<T>(_InterlockedIncrement64(reinterpret_cast<volatile __int64*>(x)));
 #else
       return add(x, 1);
-#endif  // EZPP_X64
+#endif  // WIN64
     }
     static inline T decre(T volatile* x) {
-#ifdef EZPP_X64
+#ifdef WIN64
       return static_cast<T>(_InterlockedDecrement64(reinterpret_cast<volatile __int64*>(x)));
 #else
       return add(x, -1);
-#endif  // EZPP_X64
+#endif  // WIN64
     }
     static inline T add(T volatile* x, T delta) {
-#ifdef EZPP_X64
+#ifdef WIN64
       return static_cast<T>(_InterlockedExchangeAdd64(reinterpret_cast<volatile __int64*>(x), delta));
 #else
       __int64 old_val, new_val;
@@ -200,7 +195,7 @@ namespace std {
                  reinterpret_cast<volatile __int64*>(x), new_val, old_val) !=
                old_val);
       return static_cast<T>(new_val);
-#endif  // EZPP_X64
+#endif  // WIN64
     }
     static inline T compare_exchange(T volatile* x, const T new_val, const T expected_val) {
       return static_cast<T>(
@@ -208,7 +203,7 @@ namespace std {
           static_cast<const __int64>(new_val), static_cast<const __int64>(expected_val)));
     }
     static inline T exchange(T volatile* x, const T new_val) {
-#ifdef EZPP_X64
+#ifdef WIN64
       return static_cast<T>(
         _InterlockedExchange64(reinterpret_cast<volatile __int64*>(x),
           static_cast<const __int64>(new_val)));
@@ -220,7 +215,7 @@ namespace std {
                  reinterpret_cast<volatile __int64*>(x), new_val, old_val) !=
                old_val);
       return static_cast<T>(old_val);
-#endif  // EZPP_X64
+#endif  // WIN64
     }
   };
 
@@ -752,15 +747,6 @@ namespace ezpp {
 
     inline void endLine(int endLine) { _endLine = endLine; }
 
-    inline bool operator==(const node_desc &other) const {
-      return _line == other._line && _name == other._name && !strcmp(file, other.file) && _ext == other._ext;
-    }
-
-    inline size_t hash() const {
-      return _line ^ fast_hash(file, strlen(file)) ^ 
-        fast_hash(_name.data(), _name.size()) ^ fast_hash(_ext.data(), _ext.size());
-    }
-
     inline const std::string& name() const { return _name; }
 
   private:
@@ -769,18 +755,6 @@ namespace ezpp {
     int         _endLine;
     std::string _name; // __FUNCTION__ \ typeid(*this).name()
     std::string _ext;
-
-    static size_t fast_hash(const char* str, size_t len) {
-#ifdef EZPP_X64
-        static const size_t mask[] = {0xFF00000000000000ULL, 0xFFFF000000000000ULL, 0xFFFFFF0000000000ULL, 
-          0xFFFFFFFF00000000ULL, 0xFFFFFFFFFF000000ULL, 0xFFFFFFFFFFFF0000ULL, 0xFFFFFFFFFFFFFF00ULL};
-#else
-        static const size_t mask[] = {0xFF000000UL, 0xFFFF0000UL, 0xFFFFFF00UL};
-#endif
-      if(!len) return 0;
-      else if(len < sizeof(size_t)) return *(size_t*)str & mask[len - 1];
-      return *(size_t*)str ^ fast_hash(str + sizeof(size_t), len - sizeof(size_t));
-    }
   };
 
   class node {
@@ -805,6 +779,8 @@ namespace ezpp {
       *(int64_t*)raw = 0;
     }
 
+    int64_t _id;
+
     node_desc _desc;
 
     typedef folly::AtomicUnorderedMap<size_t, folly::MutableAtom<int64_t> > time_map;
@@ -821,7 +797,7 @@ namespace ezpp {
     bool _releaseUntilEnd;
 
   private:
-    explicit node(const node_desc& desc, int64_t c12n, unsigned char flags);
+    explicit node(int64_t id, const node_desc& desc, int64_t c12n, unsigned char flags);
   };
 
   class node_aux {
@@ -835,10 +811,15 @@ namespace ezpp {
     int64_t _c12n;
   };
 
+  static int64_t gen_id() {
+    static std::atomic<int64_t> id(0);
+    return ++id;
+  }
+
   class ezpp {
   public:
-    static node* create(const node_desc& desc, int64_t c12n, unsigned char flags = EZPP_NODE_AUTO_START);
-    static void release(const std::pair<node_desc, folly::MutableData<node*> >& node_pair);
+    static node* create(int64_t id, const node_desc& desc, int64_t c12n, unsigned char flags = EZPP_NODE_AUTO_START);
+    static void release(const std::pair<int64_t, folly::MutableData<node*> >& node_pair);
 
     void addOption(unsigned char optModify);
     void removeOption(unsigned char optModify);
@@ -856,10 +837,6 @@ namespace ezpp {
     ~ezpp();
 
   protected:
-    struct node_desc_hasher {
-      size_t operator()(const node_desc& desc) { return desc.hash(); }
-    };
-
     friend class node;
     friend ezpp& inst();
 
@@ -868,12 +845,12 @@ namespace ezpp {
       return 0;
     }
 
-    void removeDoNode(const node_desc& desc);
+    void removeDoNode(int64_t id);
 
     void output(FILE* fp);
     static void outputTime(FILE* fp, int64_t duration);
 
-    typedef folly::AtomicUnorderedMap<node_desc, folly::MutableData<node*>, node_desc_hasher> node_map;
+    typedef folly::AtomicUnorderedMap<size_t, folly::MutableData<node*> > node_map;
 
     node_map _doMap;
     node_map _nodeMap;
@@ -952,24 +929,24 @@ namespace ezpp {
 
   // public static
   node* 
-  ezpp::create(const node_desc& desc, int64_t c12n, unsigned char flags /*= EZPP_NODE_AUTO_START*/) {
+  ezpp::create(int64_t id, const node_desc& desc, int64_t c12n, unsigned char flags /*= EZPP_NODE_AUTO_START*/) {
     if (!inst().enabled() || !flags) {
       return 0;
     }
     node_map& map = (flags & EZPP_NODE_DIRECT_OUTPUT) ? inst()._doMap : inst()._nodeMap;
-    node_map::const_iterator it = map.find(desc);
+    node_map::const_iterator it = map.find(id);
     if (it != map.cend()) {
       it->second.data->call(c12n);
       return it->second.data;
     }
-    node* n = new node(desc, c12n, flags);
-    map.insert(desc, n);
+    node* n = new node(id, desc, c12n, flags);
+    map.insert(id, n);
     return n;
   }
 
   // public static
   void
-  ezpp::release(const std::pair<node_desc, folly::MutableData<node*> >& node_pair) {
+  ezpp::release(const std::pair<int64_t, folly::MutableData<node*> >& node_pair) {
     if (!node_pair.second.data->checkInUse()) {
       delete node_pair.second.data;
     }
@@ -1058,8 +1035,8 @@ namespace ezpp {
 
   // protected
   void
-  ezpp::removeDoNode(const node_desc& desc) {
-    _doMap.erase(desc);
+  ezpp::removeDoNode(int64_t id) {
+    _doMap.erase(id);
   }
 
   // public
@@ -1099,8 +1076,9 @@ namespace ezpp {
   }
 
   // protected
-  node::node(const node_desc& desc, int64_t c12n, unsigned char flags)
-    : _desc(desc)
+  node::node(int64_t id, const node_desc& desc, int64_t c12n, unsigned char flags)
+    : _id(id)
+    , _desc(desc)
     , _beginMap(EZPP_NODE_MAX)
     , _costMap(EZPP_NODE_MAX)
     , _refMap(EZPP_NODE_MAX)
@@ -1157,7 +1135,7 @@ namespace ezpp {
 
       if ((_flags & EZPP_NODE_DIRECT_OUTPUT)) {
         output(stdout);
-        inst().removeDoNode(_desc);
+        inst().removeDoNode(_id);
         delete this;
       }
       else if (_releaseUntilEnd)
@@ -1215,15 +1193,15 @@ namespace ezpp {
 
 //////////////////////////////////////////////////////////////////////////
 
-#define _EZPP_SUB_CHECK(expression)            if (::ezpp::inst().enabled()) {expression;}
+#define _EZPP_SUB_CHECK(expression)            if (::ezpp::inst().enabled()) {static const int64_t id = ::ezpp::gen_id(); expression;}
 
 #define _EZPP_AUX_BASE(sign, flags, desc)      \
   ::ezpp::node_aux _ezpp_a_##sign;             \
-  _EZPP_SUB_CHECK(_ezpp_a_##sign.set(::ezpp::ezpp::create(::ezpp::node_desc(__FILE__, __LINE__, __FUNCTION__, desc), EZPP_THREAD_ID, EZPP_NODE_AUTO_START | flags), EZPP_THREAD_ID))
+  _EZPP_SUB_CHECK(_ezpp_a_##sign.set(::ezpp::ezpp::create(id, ::ezpp::node_desc(__FILE__, __LINE__, __FUNCTION__, desc), EZPP_THREAD_ID, EZPP_NODE_AUTO_START | flags), EZPP_THREAD_ID))
 
 #define _EZPP_NO_AUX_BEGIN_BASE(sign, flags, desc) \
   ::ezpp::node *_ezpp_na_##sign##_ = 0;        \
-  _EZPP_SUB_CHECK(_ezpp_na_##sign##_ = ::ezpp::ezpp::create(::ezpp::node_desc(__FILE__, __LINE__, __FUNCTION__, desc), EZPP_THREAD_ID, EZPP_NODE_AUTO_START | flags))
+  _EZPP_SUB_CHECK(_ezpp_na_##sign##_ = ::ezpp::ezpp::create(id, ::ezpp::node_desc(__FILE__, __LINE__, __FUNCTION__, desc), EZPP_THREAD_ID, EZPP_NODE_AUTO_START | flags))
 
 #define _EZPP_NO_AUX_END_BASE(sign)            \
   if (_ezpp_na_##sign##_) {                    \
@@ -1237,11 +1215,11 @@ namespace ezpp {
   public:                                      \
 
 #define _EZPP_CLS_INIT_BASE(sign, flags, desc) \
-  _EZPP_SUB_CHECK(_ezpp_cls_##sign.set(::ezpp::ezpp::create(::ezpp::node_desc(__FILE__, __LINE__, typeid(*this).name(), desc), (int64_t)this, EZPP_NODE_AUTO_START | EZPP_NODE_CLS | flags), (int64_t)this))
+  _EZPP_SUB_CHECK(_ezpp_cls_##sign.set(::ezpp::ezpp::create(id, ::ezpp::node_desc(__FILE__, __LINE__, typeid(*this).name(), desc), (int64_t)this, EZPP_NODE_AUTO_START | EZPP_NODE_CLS | flags), (int64_t)this))
 
 #define _EZPP_ILDO_DECL_BASE(sign, flags, desc)\
   ::ezpp::node *_ezpp_ildo_##sign##_ = 0;      \
-  _EZPP_SUB_CHECK(_ezpp_ildo_##sign##_ = ::ezpp::ezpp::create(::ezpp::node_desc(__FILE__, __LINE__, __FUNCTION__, desc), EZPP_THREAD_ID, EZPP_NODE_DIRECT_OUTPUT | flags))
+  _EZPP_SUB_CHECK(_ezpp_ildo_##sign##_ = ::ezpp::ezpp::create(id, ::ezpp::node_desc(__FILE__, __LINE__, __FUNCTION__, desc), EZPP_THREAD_ID, EZPP_NODE_DIRECT_OUTPUT | flags))
 
 #define _EZPP_ILDO_BASE(sign)                  \
   ::ezpp::node_aux _ezpp_a_ildo_##sign##_(_ezpp_ildo_##sign##_, EZPP_THREAD_ID);\
