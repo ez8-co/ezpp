@@ -722,51 +722,16 @@ namespace ezpp {
 
   } // namespace folly
 
-  class node_desc {
-  public:
-    node_desc(const char* file = 0, int line = 0, const std::string& name = "", const std::string& ext = "")
-      : file(file)
-      , _line(line)
-      , _endLine(0)
-      , _name(name)
-      , _ext(ext)
-    {}
-
-    void outputFullDesc(FILE* fp) const {
-      if (_line) {
-        fprintf(fp, "%s (%s:%d", _name.c_str(), file, _line);
-        if (_endLine) {
-          fprintf(fp, "~%d", _endLine);
-        }
-        fprintf(fp, ")");
-      }
-      if (!_ext.empty()) {
-        fprintf(fp, " \"%s\"", _ext.c_str());
-      }
-    }
-
-    inline void endLine(int endLine) { _endLine = endLine; }
-
-    inline const std::string& name() const { return _name; }
-
-  private:
-    const char* file;
-    int         _line;
-    int         _endLine;
-    std::string _name; // __FUNCTION__ \ typeid(*this).name()
-    std::string _ext;
-  };
-
   class node {
   public:
     friend class ezpp;
 
-    inline const std::string& name() const { return _desc.name(); }
+    inline const std::string& name() const { return _name; }
     inline int64_t callCnt() const         { return _callCnt; }
     inline int64_t costTime() const        { return _totalCost; }
     inline bool checkInUse()               { return _totalRefCnt > 0; }
     inline void setReleaseUntilEnd()       { _releaseUntilEnd = true; }
-    inline void endLine(int endLine)       { _desc.endLine(endLine); }
+    inline void endLine(int endLine)       { _endLine = endLine; }
 
     void begin(int64_t c12n);
     void end(int64_t c12n);
@@ -774,14 +739,16 @@ namespace ezpp {
 
     void output(FILE* fp);
 
+    void setDesc(const char* file = 0, int line = 0, const std::string& name = "", const std::string& ext = "") {
+      _file = file; _line = line; _name = name; _ext = ext;
+    }
+
   protected:
     static inline void atomic_init(void* raw, const folly::MutableAtom<int64_t>*) {
       *(int64_t*)raw = 0;
     }
 
     int64_t _id;
-
-    node_desc _desc;
 
     typedef folly::AtomicUnorderedMap<size_t, folly::MutableAtom<int64_t> > time_map;
     time_map _beginMap;
@@ -796,13 +763,19 @@ namespace ezpp {
     unsigned char _flags;
     bool _releaseUntilEnd;
 
+    const char* _file;
+    int         _line;
+    int         _endLine;
+    std::string _name; // __FUNCTION__ \ typeid(*this).name()
+    std::string _ext;
+
   private:
-    explicit node(int64_t id, const node_desc& desc, int64_t c12n, unsigned char flags);
+    explicit node(int64_t id, int64_t c12n, unsigned char flags);
   };
 
   class node_aux {
   public:
-    node_aux(node *n = 0, int64_t c12n = 0) : _n(n), _c12n(c12n){}
+    node_aux(node *n = 0, int64_t c12n = 0) : _n(n), _c12n(c12n) {}
     inline void set(node *n, int64_t c12n) { _n = n; _c12n = c12n; }
     ~node_aux() { if (_n) _n->end(_c12n); }
 
@@ -811,14 +784,9 @@ namespace ezpp {
     int64_t _c12n;
   };
 
-  static int64_t gen_id() {
-    static std::atomic<int64_t> id(0);
-    return ++id;
-  }
-
   class ezpp {
   public:
-    static node* create(int64_t id, const node_desc& desc, int64_t c12n, unsigned char flags = EZPP_NODE_AUTO_START);
+    static node* create(int64_t id, int64_t c12n, unsigned char flags, const char* file, int line, const std::string& name, const std::string& ext);
     static void release(const std::pair<int64_t, folly::MutableData<node*> >& node_pair);
 
     void addOption(unsigned char optModify);
@@ -831,6 +799,11 @@ namespace ezpp {
     void save(const std::string& file = "");
     void clear();
     inline bool enabled() { return _enabled; }
+
+    static int64_t gen_id() {
+      static std::atomic<int64_t> id(0);
+      return ++id;
+    }
 
   protected:
     ezpp(int/* dummy */);
@@ -929,7 +902,7 @@ namespace ezpp {
 
   // public static
   node* 
-  ezpp::create(int64_t id, const node_desc& desc, int64_t c12n, unsigned char flags /*= EZPP_NODE_AUTO_START*/) {
+  ezpp::create(int64_t id, int64_t c12n, unsigned char flags, const char* file, int line, const std::string& name, const std::string& ext) {
     if (!inst().enabled() || !flags) {
       return 0;
     }
@@ -939,7 +912,8 @@ namespace ezpp {
       it->second.data->call(c12n);
       return it->second.data;
     }
-    node* n = new node(id, desc, c12n, flags);
+    node* n = new node(id, c12n, flags);
+    n->setDesc(file, line, name, ext);
     map.insert(id, n);
     return n;
   }
@@ -1076,9 +1050,8 @@ namespace ezpp {
   }
 
   // protected
-  node::node(int64_t id, const node_desc& desc, int64_t c12n, unsigned char flags)
+  node::node(int64_t id, int64_t c12n, unsigned char flags)
     : _id(id)
-    , _desc(desc)
     , _beginMap(EZPP_NODE_MAX)
     , _costMap(EZPP_NODE_MAX)
     , _refMap(EZPP_NODE_MAX)
@@ -1088,6 +1061,11 @@ namespace ezpp {
     , _totalRefCnt(1)
     , _flags(flags)
     , _releaseUntilEnd(false)
+    , _file(0)
+    , _line(0)
+    , _endLine(0)
+    , _name()
+    , _ext()
   {
     if (_flags & EZPP_NODE_AUTO_START)
       begin(c12n);
@@ -1149,7 +1127,16 @@ namespace ezpp {
   void
   node::output(FILE* fp) {
     fprintf(fp, "[Category] ");
-    _desc.outputFullDesc(fp);
+    if (_line) {
+      fprintf(fp, "%s (%s:%d", _name.c_str(), _file, _line);
+      if (_endLine) {
+        fprintf(fp, "~%d", _endLine);
+      }
+      fprintf(fp, ")");
+    }
+    if (!_ext.empty()) {
+      fprintf(fp, " \"%s\"", _ext.c_str());
+    }
     fprintf(fp, "\r\n");
     if (_totalRefCnt)
       fprintf(fp, "Warning: Unbalance detected! Mismatch or haven't been ended yet!\r\n");
@@ -1193,15 +1180,15 @@ namespace ezpp {
 
 //////////////////////////////////////////////////////////////////////////
 
-#define _EZPP_SUB_CHECK(expression)            if (::ezpp::inst().enabled()) {static const int64_t id = ::ezpp::gen_id(); expression;}
+#define _EZPP_SUB_CHECK(expression)            if (::ezpp::inst().enabled()) { static const int64_t id = ::ezpp::ezpp::gen_id(); expression; }
 
 #define _EZPP_AUX_BASE(sign, flags, desc)      \
   ::ezpp::node_aux _ezpp_a_##sign;             \
-  _EZPP_SUB_CHECK(_ezpp_a_##sign.set(::ezpp::ezpp::create(id, ::ezpp::node_desc(__FILE__, __LINE__, __FUNCTION__, desc), EZPP_THREAD_ID, EZPP_NODE_AUTO_START | flags), EZPP_THREAD_ID))
+  _EZPP_SUB_CHECK(_ezpp_a_##sign.set(::ezpp::ezpp::create(id, EZPP_THREAD_ID, EZPP_NODE_AUTO_START | flags, __FILE__, __LINE__, __FUNCTION__, desc), EZPP_THREAD_ID))
 
 #define _EZPP_NO_AUX_BEGIN_BASE(sign, flags, desc) \
   ::ezpp::node *_ezpp_na_##sign##_ = 0;        \
-  _EZPP_SUB_CHECK(_ezpp_na_##sign##_ = ::ezpp::ezpp::create(id, ::ezpp::node_desc(__FILE__, __LINE__, __FUNCTION__, desc), EZPP_THREAD_ID, EZPP_NODE_AUTO_START | flags))
+  _EZPP_SUB_CHECK(_ezpp_na_##sign##_ = ::ezpp::ezpp::create(id, EZPP_THREAD_ID, EZPP_NODE_AUTO_START | flags, __FILE__, __LINE__, __FUNCTION__, desc))
 
 #define _EZPP_NO_AUX_END_BASE(sign)            \
   if (_ezpp_na_##sign##_) {                    \
@@ -1215,11 +1202,11 @@ namespace ezpp {
   public:                                      \
 
 #define _EZPP_CLS_INIT_BASE(sign, flags, desc) \
-  _EZPP_SUB_CHECK(_ezpp_cls_##sign.set(::ezpp::ezpp::create(id, ::ezpp::node_desc(__FILE__, __LINE__, typeid(*this).name(), desc), (int64_t)this, EZPP_NODE_AUTO_START | EZPP_NODE_CLS | flags), (int64_t)this))
+  _EZPP_SUB_CHECK(_ezpp_cls_##sign.set(::ezpp::ezpp::create(id, (int64_t)this, EZPP_NODE_AUTO_START | EZPP_NODE_CLS | flags, __FILE__, __LINE__, typeid(*this).name(), desc), (int64_t)this))
 
 #define _EZPP_ILDO_DECL_BASE(sign, flags, desc)\
   ::ezpp::node *_ezpp_ildo_##sign##_ = 0;      \
-  _EZPP_SUB_CHECK(_ezpp_ildo_##sign##_ = ::ezpp::ezpp::create(id, ::ezpp::node_desc(__FILE__, __LINE__, __FUNCTION__, desc), EZPP_THREAD_ID, EZPP_NODE_DIRECT_OUTPUT | flags))
+  _EZPP_SUB_CHECK(_ezpp_ildo_##sign##_ = ::ezpp::ezpp::create(id, EZPP_THREAD_ID, EZPP_NODE_DIRECT_OUTPUT | flags, __FILE__, __LINE__, __FUNCTION__, desc))
 
 #define _EZPP_ILDO_BASE(sign)                  \
   ::ezpp::node_aux _ezpp_a_ildo_##sign##_(_ezpp_ildo_##sign##_, EZPP_THREAD_ID);\
