@@ -462,11 +462,13 @@ namespace ezpp {
       IndexType prev = slots_[slot].headAndState_.load(std::memory_order_acquire);
 
       IndexType existing = find(key, slot);
-      if (existing != 0) {
+      if (existing)
         return std::make_pair(ConstIterator(*this, existing), false);
-      }
 
       IndexType idx = allocateNear(slot);
+      // allocaion failed, return fake element
+      if (!idx)
+        return std::make_pair(ConstIterator(*this, idx), false);
       new (&slots_[idx].keyValue().first) Key(key);
       func(static_cast<void*>(&slots_[idx].keyValue().second), value);
 
@@ -476,24 +478,19 @@ namespace ezpp {
         // we can merge the head update and the CONSTRUCTING -> LINKED update
         // into a single CAS if slot == idx (which should happen often)
         IndexType after = idx << 2;
-        if (slot == idx) {
-          after += LINKED;
-        } else {
-          after += (prev & 3);
-        }
+        after += (slot == idx) ? LINKED : (prev & 3);
 
         if (slots_[slot].headAndState_.compare_exchange_strong(prev, after)) {
           // success
-          if (idx != slot) {
+          if (idx != slot)
             slots_[idx].stateUpdate(CONSTRUCTING, LINKED);
-          }
           return std::make_pair(ConstIterator(*this, idx), true);
         }
         // compare_exchange_strong updates its first arg on failure, so
         // there is no need to reread prev
 
         existing = find(key, slot);
-        if (existing != 0) {
+        if (existing) {
           // our allocated key and value are no longer needed
           slots_[idx].keyValue().first.~Key();
           slots_[idx].keyValue().second.~Value();
@@ -673,7 +670,8 @@ namespace ezpp {
             return slot;
           }
         }
-        throw std::bad_alloc();
+        return 0; // return fake element rather than throw exception to ignore overflow
+        // throw std::bad_alloc();
       }
 
       /// Returns the slot we should attempt to allocate after tries failed
