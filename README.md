@@ -5,6 +5,8 @@
 
 [![Build Status](https://semaphoreci.com/api/v1/orca-zhang-91/ezpp/branches/master/shields_badge.svg)](https://semaphoreci.com/orca-zhang-91/ezpp)
 
+[![Build status](https://ci.appveyor.com/api/projects/status/x1s4dckwtdmtq25r?svg=true)](https://ci.appveyor.com/project/orca-zhang/ezpp)
+
 ## 性能优化的几个层次
 
 #### 原则：基于真实的度量。（《重构——改善现有代码的设计》P69 哪怕你完全了解系统，也请实际度量它的性能，不要臆测。臆测会让你学到一些东西，但十有八九你是错的。）
