@@ -379,7 +379,7 @@ namespace ezpp {
     typedef KeyEqual key_equal;
     typedef const value_type& const_reference;
 
-    typedef struct ConstIterator {
+    typedef struct ConstIterator : public std::iterator<std::bidirectional_iterator_tag, value_type> {
       ConstIterator(const AtomicUnorderedMap& owner, IndexType slot)
         : owner_(owner)
         , slot_(slot)
@@ -812,7 +812,7 @@ namespace ezpp {
     friend ezpp& inst();
 
     static int init() {
-      std::srand(time(0));
+      std::srand((unsigned int)time(0));
       return 0;
     }
 
@@ -865,7 +865,7 @@ namespace ezpp {
       fprintf(fp, "%.0f hour%s, ", hour, hour > 1 ? "s" : "");
     }
 
-    minute = (int64_t)minute % 60;
+    minute = (double)((int64_t)minute % 60);
     if ((int)minute > 0) {
       fprintf(fp, "%.0f min%s, ", minute, minute > 1 ? "s" : "");
     }
@@ -905,14 +905,14 @@ namespace ezpp {
       return 0;
     }
     node_map& map = (flags & EZPP_NODE_DIRECT_OUTPUT) ? inst()._doMap : inst()._nodeMap;
-    node_map::const_iterator it = map.find(id);
+    node_map::const_iterator it = map.find((size_t)id);
     if (it != map.cend()) {
       it->second.data->call(c12n);
       return it->second.data;
     }
     node* n = new node(id, c12n, flags);
     n->setDesc(file, line, name, ext);
-    map.insert(id, n);
+    map.insert((size_t)id, n);
     return n;
   }
 
@@ -1008,7 +1008,7 @@ namespace ezpp {
   // protected
   void
   ezpp::removeDoNode(int64_t id) {
-    _doMap.erase(id);
+    _doMap.erase((size_t)id);
   }
 
   // public
@@ -1079,12 +1079,12 @@ namespace ezpp {
       call(c12n);
       return;
     }
-    _beginMap.insert(c12n, time_now());
-    _costMap.insert(c12n, 0);
+    _beginMap.insert((size_t)c12n, time_now());
+    _costMap.insert((size_t)c12n, 0);
     _refMap.insert(EZPP_THREAD_ID, 1);
   }
 
-  #define _GET_(m, k) m.findOrConstruct(k, atomic_init, (const folly::MutableAtom<int64_t>*)0).first->second.data
+  #define _GET_(m, k) m.findOrConstruct((size_t)k, atomic_init, (const folly::MutableAtom<int64_t>*)0).first->second.data
 
   // public
   void 
