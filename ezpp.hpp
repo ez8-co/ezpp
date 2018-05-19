@@ -731,13 +731,13 @@ namespace ezpp {
     inline void setReleaseUntilEnd()       { _releaseUntilEnd = true; }
     inline void endLine(int endLine)       { _endLine = endLine; }
 
-    void begin(int64_t c12n);
-    void end(int64_t c12n);
-    void call(int64_t c12n);
+    void begin(size_t c12n);
+    void call(size_t c12n);
+    void end(size_t c12n);
 
     void output(FILE* fp);
 
-    void setDesc(const char* file = 0, int line = 0, const std::string& name = "", const std::string& ext = "") {
+    void setDesc(const char* file, int line, const std::string& name, const std::string& ext) {
       _file = file; _line = line; _name = name; _ext = ext;
     }
 
@@ -746,7 +746,7 @@ namespace ezpp {
       *(int64_t*)raw = 0;
     }
 
-    int64_t _id;
+    size_t _id;
 
     typedef folly::AtomicUnorderedMap<size_t, folly::MutableAtom<int64_t> > time_map;
     time_map _beginMap;
@@ -768,24 +768,24 @@ namespace ezpp {
     std::string _ext;
 
   private:
-    explicit node(int64_t id, int64_t c12n, unsigned char flags);
+    explicit node(size_t id, size_t c12n, unsigned char flags);
   };
 
   class node_aux {
   public:
-    node_aux(node *n = 0, int64_t c12n = 0) : _n(n), _c12n(c12n) {}
-    inline void set(node *n, int64_t c12n) { _n = n; _c12n = c12n; }
+    node_aux(node *n = 0, size_t c12n = 0) : _n(n), _c12n(c12n) {}
+    inline void set(node *n, size_t c12n) { _n = n; _c12n = c12n; }
     ~node_aux() { if (_n) _n->end(_c12n); }
 
   private:
     node *_n;
-    int64_t _c12n;
+	size_t _c12n;
   };
 
   class ezpp {
   public:
-    static node* create(int64_t id, int64_t c12n, unsigned char flags, const char* file, int line, const std::string& name, const std::string& ext);
-    static void release(const std::pair<int64_t, folly::MutableData<node*> >& node_pair);
+    static node* create(size_t id, size_t c12n, unsigned char flags, const char* file, int line, const std::string& name, const std::string& ext);
+    static void release(const std::pair<size_t, folly::MutableData<node*> >& node_pair);
 
     void addOption(unsigned char optModify);
     void removeOption(unsigned char optModify);
@@ -798,8 +798,8 @@ namespace ezpp {
     void clear();
     inline bool enabled() { return _enabled; }
 
-    static int64_t gen_id() {
-      static std::atomic<int64_t> id(0);
+    static size_t gen_id() {
+      static std::atomic<size_t> id(0);
       return ++id;
     }
 
@@ -816,7 +816,7 @@ namespace ezpp {
       return 0;
     }
 
-    void removeDoNode(int64_t id);
+    void removeDoNode(size_t id);
 
     void output(FILE* fp);
     static void outputTime(FILE* fp, int64_t duration);
@@ -900,25 +900,25 @@ namespace ezpp {
 
   // public static
   node* 
-  ezpp::create(int64_t id, int64_t c12n, unsigned char flags, const char* file, int line, const std::string& name, const std::string& ext) {
+  ezpp::create(size_t id, size_t c12n, unsigned char flags, const char* file, int line, const std::string& name, const std::string& ext) {
     if (!inst().enabled() || !flags) {
       return 0;
     }
     node_map& map = (flags & EZPP_NODE_DIRECT_OUTPUT) ? inst()._doMap : inst()._nodeMap;
-    node_map::const_iterator it = map.find((size_t)id);
+    node_map::const_iterator it = map.find(id);
     if (it != map.cend()) {
       it->second.data->call(c12n);
       return it->second.data;
     }
     node* n = new node(id, c12n, flags);
     n->setDesc(file, line, name, ext);
-    map.insert((size_t)id, n);
+    map.insert(id, n);
     return n;
   }
 
   // public static
   void
-  ezpp::release(const std::pair<int64_t, folly::MutableData<node*> >& node_pair) {
+  ezpp::release(const std::pair<size_t, folly::MutableData<node*> >& node_pair) {
     if (!node_pair.second.data->checkInUse()) {
       delete node_pair.second.data;
     }
@@ -1007,8 +1007,8 @@ namespace ezpp {
 
   // protected
   void
-  ezpp::removeDoNode(int64_t id) {
-    _doMap.erase((size_t)id);
+  ezpp::removeDoNode(size_t id) {
+    _doMap.erase(id);
   }
 
   // public
@@ -1048,7 +1048,7 @@ namespace ezpp {
   }
 
   // protected
-  node::node(int64_t id, int64_t c12n, unsigned char flags)
+  node::node(size_t id, size_t c12n, unsigned char flags)
     : _id(id)
     , _beginMap(EZPP_NODE_MAX)
     , _costMap(EZPP_NODE_MAX)
@@ -1074,21 +1074,21 @@ namespace ezpp {
 
   // public
   void 
-  node::begin(int64_t c12n) {
+  node::begin(size_t c12n) {
     if (_beginMap.cbegin() != _beginMap.cend()) {
       call(c12n);
       return;
     }
-    _beginMap.insert((size_t)c12n, time_now());
-    _costMap.insert((size_t)c12n, 0);
+    _beginMap.insert(c12n, time_now());
+    _costMap.insert(c12n, 0);
     _refMap.insert(EZPP_THREAD_ID, 1);
   }
 
-  #define _GET_(m, k) m.findOrConstruct((size_t)k, atomic_init, (const folly::MutableAtom<int64_t>*)0).first->second.data
+  #define _GET_(m, k) m.findOrConstruct(k, atomic_init, (const folly::MutableAtom<int64_t>*)0).first->second.data
 
   // public
   void 
-  node::call(int64_t c12n) {
+  node::call(size_t c12n) {
     int64_t now = time_now();
     if (!_GET_(_refMap, c12n)++ || (_flags & EZPP_NODE_CLS))
       _GET_(_beginMap, c12n) = now;
@@ -1100,7 +1100,7 @@ namespace ezpp {
 
   // public
   void 
-  node::end(int64_t c12n) {
+  node::end(size_t c12n) {
     --_totalRefCnt;
     int64_t now = time_now();
     if (!--_GET_(_refMap, c12n) || (_flags & EZPP_NODE_CLS)) {
@@ -1137,7 +1137,7 @@ namespace ezpp {
     }
     fprintf(fp, "\r\n");
     if (_totalRefCnt)
-      fprintf(fp, "Warning: Unbalance detected! Mismatch or haven't been ended yet!\r\n");
+      fprintf(fp, "Warning: unbalance detected! Mismatch or haven't ended yet!\r\n");
     fprintf(fp, "[Time] ");
     ezpp::outputTime(fp, _totalCost);
     if (_totalRefCnt) {
@@ -1178,7 +1178,7 @@ namespace ezpp {
 
 //////////////////////////////////////////////////////////////////////////
 
-#define _EZPP_SUB_CHECK(expression)            if (::ezpp::inst().enabled()) { static const int64_t id = ::ezpp::ezpp::gen_id(); expression; }
+#define _EZPP_SUB_CHECK(expression)            if (::ezpp::inst().enabled()) { static const size_t id = ::ezpp::ezpp::gen_id(); expression; }
 
 #define _EZPP_AUX_BASE(sign, flags, desc)      \
   ::ezpp::node_aux _ezpp_a_##sign;             \
@@ -1200,7 +1200,7 @@ namespace ezpp {
   public:                                      \
 
 #define _EZPP_CLS_INIT_BASE(sign, flags, desc) \
-  _EZPP_SUB_CHECK(_ezpp_cls_##sign.set(::ezpp::ezpp::create(id, (int64_t)this, EZPP_NODE_AUTO_START | EZPP_NODE_CLS | flags, __FILE__, __LINE__, typeid(*this).name(), desc), (int64_t)this))
+  _EZPP_SUB_CHECK(_ezpp_cls_##sign.set(::ezpp::ezpp::create(id, (size_t)this, EZPP_NODE_AUTO_START | EZPP_NODE_CLS | flags, __FILE__, __LINE__, typeid(*this).name(), desc), (int64_t)this))
 
 #define _EZPP_ILDO_DECL_BASE(sign, flags, desc)\
   ::ezpp::node *_ezpp_ildo_##sign##_ = 0;      \
