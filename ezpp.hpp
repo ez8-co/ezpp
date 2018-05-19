@@ -25,9 +25,6 @@
   #include <intrin.h>
   #define LIKELY(x)                   (x)
   #define UNLIKELY(x)                 (x)
-  #pragma warning(disable:4710)
-  #pragma warning(disable:4711)
-  #pragma warning(disable:4820)
 #else
   #define LIKELY(x)                   (__builtin_expect((x), 1))
   #define UNLIKELY(x)                 (__builtin_expect((x), 0))
