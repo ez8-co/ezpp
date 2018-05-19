@@ -1,7 +1,6 @@
 # ezpp
 
-[![license](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](https://github.com/ez8-co/ezpp/blob/master/LICENSE)  
-[![Build Status](https://semaphoreci.com/api/v1/orca-zhang-91/ezpp/branches/master/shields_badge.svg)](https://semaphoreci.com/orca-zhang-91/ezpp)  [![Build status](https://ci.appveyor.com/api/projects/status/x1s4dckwtdmtq25r?svg=true)](https://ci.appveyor.com/project/orca-zhang/ezpp)
+[![license](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](https://github.com/ez8-co/ezpp/blob/master/LICENSE)  [![Build Status](https://semaphoreci.com/api/v1/orca-zhang-91/ezpp/branches/master/shields_badge.svg)](https://semaphoreci.com/orca-zhang-91/ezpp)  [![Build status](https://ci.appveyor.com/api/projects/status/x1s4dckwtdmtq25r?svg=true)](https://ci.appveyor.com/project/orca-zhang/ezpp)
 
 - C++性能剖析器（跨平台、无锁、智能）
 - Easy Performance Profiler that is cross-platform, lock-free and smart for C++.
