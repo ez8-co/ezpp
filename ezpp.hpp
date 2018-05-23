@@ -478,7 +478,10 @@ namespace ezpp {
         // we can merge the head update and the CONSTRUCTING -> LINKED update
         // into a single CAS if slot == idx (which should happen often)
         IndexType after = idx << 2;
-        after += (slot == idx) ? LINKED : (prev & 3);
+        if (slot == idx)
+          after += LINKED;
+        else
+          after += (prev & 3);
 
         if (slots_[slot].headAndState_.compare_exchange_strong(prev, after)) {
           // success
@@ -1124,7 +1127,7 @@ namespace ezpp {
   // public
   void
   node::output(FILE* fp) {
-    fprintf(fp, "[Category] ");
+    fprintf(fp, "[Name] ");
     if (_line) {
       fprintf(fp, "%s (%s:%d", _name.c_str(), _file, _line);
       if (_endLine) {
